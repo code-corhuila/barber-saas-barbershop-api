@@ -35,4 +35,11 @@ final class Rules {
         }
         return value;
     }
+
+    static long atLeast(long value, long min, String field) {
+        if (value < min) {
+            throw new BusinessRuleViolation("The " + field + " must be at least " + min);
+        }
+        return value;
+    }
 }
