@@ -23,5 +23,6 @@
 
   <modules>
     <module>barbershop-core</module>
+    <module>barbershop-adapters</module>
   </modules>
 </project>
