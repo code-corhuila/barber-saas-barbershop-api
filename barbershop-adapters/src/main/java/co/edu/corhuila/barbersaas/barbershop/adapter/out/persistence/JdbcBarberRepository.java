@@ -22,7 +22,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class JdbcBarberRepository implements BarberRepository {
 
     private static final String COLUMNS =
-            "p.id, p.barbershop_id, p.user_id, p.experience_years, p.bio, p.rating_avg, p.rating_count";
+            "p.id, p.barbershop_id, p.user_id, p.full_name, p.profile_photo_url, p.experience_years, p.bio, p.rating_avg, "
+            + "p.rating_count";
     private static final String SPECIALTY_COLUMNS = "id, barber_profile_id, specialty_name";
 
     private final JdbcTemplate jdbc;
@@ -72,10 +73,11 @@ public class JdbcBarberRepository implements BarberRepository {
     public void saveNew(BarberProfile p, Idempotency.Key key) {
         try {
             tx.executeWithoutResult(status -> {
-                jdbc.update("INSERT INTO barbershop.barber_profile (id, barbershop_id, user_id, experience_years, bio, "
-                                + "rating_avg, rating_count) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        p.id(), p.barbershopId(), p.userId(), p.experienceYears(), p.bio(), p.ratingAvg(),
-                        p.ratingCount());
+                jdbc.update("INSERT INTO barbershop.barber_profile (id, barbershop_id, user_id, full_name, "
+                                + "profile_photo_url, experience_years, bio, rating_avg, rating_count) "
+                                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        p.id(), p.barbershopId(), p.userId(), p.fullName(), p.profilePhotoUrl(), p.experienceYears(),
+                        p.bio(), p.ratingAvg(), p.ratingCount());
                 JdbcIdempotency.insert(jdbc, key, p.id());
             });
         } catch (DuplicateKeyException e) {
@@ -86,7 +88,7 @@ public class JdbcBarberRepository implements BarberRepository {
         }
     }
 
-    /** The rating is never written here: it is fed by reviews (06-data/models.md §11). */
+    /** Neither the rating (fed by reviews, 06-data/models.md §11) nor the name snapshot (ADR-014) is written here. */
     @Override
     public void update(BarberProfile p) {
         jdbc.update("UPDATE barbershop.barber_profile SET experience_years = ?, bio = ? "
@@ -135,7 +137,8 @@ public class JdbcBarberRepository implements BarberRepository {
 
     private static BarberProfile map(ResultSet rs) throws SQLException {
         return new BarberProfile(rs.getObject("id", UUID.class), rs.getObject("barbershop_id", UUID.class),
-                rs.getObject("user_id", UUID.class), rs.getInt("experience_years"), rs.getString("bio"),
+                rs.getObject("user_id", UUID.class), rs.getString("full_name"), rs.getString("profile_photo_url"),
+                rs.getInt("experience_years"), rs.getString("bio"),
                 rs.getBigDecimal("rating_avg"), rs.getInt("rating_count"), List.of());
     }
 
