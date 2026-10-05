@@ -11,6 +11,8 @@ import co.edu.corhuila.barbersaas.barbershop.application.port.in.Page;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarberRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.IdGenerator;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Idempotency;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.Users;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.Users.User;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.BarberProfile;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.BarberSpecialty;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.DomainException.BusinessRuleViolation;
@@ -19,8 +21,8 @@ import java.util.UUID;
 import java.util.function.Function;
 
 /**
- * The userId of a new profile is not checked against identity-auth yet: auth-service.yaml has no
- * operation to read a user's role and barbershop (see the README, "What is missing").
+ * A new profile reads its user once from identity-auth (DEC-SHOP-04, ADR-014): it checks the user
+ * and keeps a copy of the name and photo, so no read of a barber ever calls identity-auth.
  */
 public class ManageBarbers implements BarberUseCases {
 
@@ -28,10 +30,12 @@ public class ManageBarbers implements BarberUseCases {
     static final String ADD_SPECIALTY_OPERATION = "POST /api/v1/barbers/{id}/specialties";
 
     private final BarberRepository barbers;
+    private final Users users;
     private final IdGenerator ids;
 
-    public ManageBarbers(BarberRepository barbers, IdGenerator ids) {
+    public ManageBarbers(BarberRepository barbers, Users users, IdGenerator ids) {
         this.barbers = barbers;
+        this.users = users;
         this.ids = ids;
     }
 
@@ -60,7 +64,9 @@ public class ManageBarbers implements BarberUseCases {
         if (barbers.existsForUser(p.userId())) {
             throw new BusinessRuleViolation("The user already has a barber profile");
         }
-        BarberProfile profile = BarberProfile.create(ids.next(), tenant, p.userId(), p.experienceYears(), p.bio());
+        User user = barberOf(tenant, p.userId());
+        BarberProfile profile = BarberProfile.create(ids.next(), tenant, p.userId(), user.fullName(),
+                user.profilePhotoUrl(), p.experienceYears(), p.bio());
         try {
             barbers.saveNew(profile, new Idempotency.Key(idempotencyKey, CREATE_OPERATION, hash));
         } catch (BarberRepository.UserAlreadyHasProfile e) {
@@ -102,6 +108,20 @@ public class ManageBarbers implements BarberUseCases {
         BarberSpecialty specialty = barbers.findSpecialty(profile.id(), specialtyId)
                 .orElseThrow(() -> new NotFound("Specialty"));
         barbers.deleteSpecialty(specialty.id());
+    }
+
+    /**
+     * 404 when identity-auth does not know the user or it belongs to another barbershop (the same answer,
+     * DEC-SHOP-01); 422 when it is not an active BARBER. Users.Unavailable (503) creates nothing.
+     */
+    private User barberOf(UUID tenant, UUID userId) {
+        User user = users.find(userId)
+                .filter(u -> tenant.equals(u.barbershopId()))
+                .orElseThrow(() -> new NotFound("User"));
+        if (!"BARBER".equals(user.role()) || !user.active()) {
+            throw new BusinessRuleViolation("The user is not an active barber");
+        }
+        return user;
     }
 
     private BarberProfile find(Caller caller, UUID id) {
