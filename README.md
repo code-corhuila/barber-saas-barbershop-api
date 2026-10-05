@@ -42,11 +42,20 @@ It never migrates its schema: that is `barber-saas-barbershop-db`.
 | `GET` / `POST /api/v1/services`, `GET` / `PUT /api/v1/services/{id}` | `ADMIN_BARBERSHOP` manages; `BARBER` and `CLIENT` see active ones |
 | `GET` / `POST /api/v1/barbers`, `GET` / `PATCH /api/v1/barbers/{id}` | `ADMIN_BARBERSHOP` manages; a `BARBER` edits only their own profile |
 | `GET` / `POST /api/v1/barbers/{id}/specialties`, `DELETE …/{specialtyId}` | `ADMIN_BARBERSHOP` or the barber themselves |
+| `POST /internal/v1/barbershops`, `DELETE /internal/v1/barbershops/{id}` | only the service token of `barber-saas-workflow` (owner onboarding, `DEC-SHOP-05`) |
 | `GET /health` | liveness, no token |
 
 The tenant comes **only** from the token's `barbershopId` claim; another barbershop's resource
 answers `404`. Every creation needs `Idempotency-Key` (a retry answers `200` with the same
 resource). Errors use the shared envelope with `traceId` = `X-Correlation-Id`.
+
+The `/internal/v1` operations are the barbershop steps of the owner-onboarding saga: create the
+barbershop in `TRIAL` (`trialEndsAt` = `createdAt` + 60 days) and, as its compensation, delete it
+while it is still `TRIAL` and has no barber (`204` also when it is already gone; otherwise `422`).
+They answer only on the internal network: the api-gateway routes `/api/v1`, never `/internal`. A
+user's token answers `403`, and so does the token of another service. To call one by hand in
+`develop`, use `WORKFLOW_SERVICE_TOKEN` of `barber-saas-infra/env/dev.env` (or
+`./scripts/dev-token.sh barber-saas-workflow SERVICE 60`).
 
 ### How to start it
 
@@ -77,11 +86,11 @@ TEST_DATABASE_PASSWORD=... mvn -B verify
 
 ### What is missing
 
-- **Creating a barbershop.** It belongs to platform-admin and the workflow (onboarding, FR-004),
-  through a service-to-service interface that is not contracted yet (OQ-10, OQ-12).
+- **Platform-admin changes.** Suspending a barbershop or assigning it a plan (OQ-10) has no
+  operation here yet.
 - **Checking a new barber profile's user.** `auth-service.yaml` has no operation to read a user, so
   `userId` is not yet verified to be a `BARBER` of the same barbershop.
 - **Clients and `/barbershops/me`.** A `CLIENT` token carries no barbershop (OQ-07), so a client
   uses the public catalog; the tenant-scoped reads answer `403` for them until OQ-07 is closed.
-- **Service tokens.** No operation accepts `role: SERVICE` yet; the contract does not say which
-  ones should (e.g. price and duration for appointment).
+- **Other service tokens.** Only the `/internal` operations accept `role: SERVICE`; the contract does
+  not say which public ones should (e.g. price and duration for appointment).
