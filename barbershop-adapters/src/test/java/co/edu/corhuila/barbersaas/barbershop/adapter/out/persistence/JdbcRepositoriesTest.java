@@ -1,6 +1,7 @@
 package co.edu.corhuila.barbersaas.barbershop.adapter.out.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -38,7 +39,7 @@ class JdbcRepositoriesTest {
     private final JdbcTemplate jdbc = new JdbcTemplate(new DriverManagerDataSource(System.getenv("TEST_DATABASE_URL"),
             System.getenv("TEST_DATABASE_USER"), System.getenv("TEST_DATABASE_PASSWORD")));
     private final TransactionTemplate tx = new TransactionTemplate(new DataSourceTransactionManager(jdbc.getDataSource()));
-    private final JdbcBarbershopRepository barbershops = new JdbcBarbershopRepository(jdbc);
+    private final JdbcBarbershopRepository barbershops = new JdbcBarbershopRepository(jdbc, tx);
     private final JdbcServiceRepository services = new JdbcServiceRepository(jdbc, tx);
     private final JdbcBarberRepository barbers = new JdbcBarberRepository(jdbc, tx);
 
@@ -68,6 +69,26 @@ class JdbcRepositoriesTest {
         assertEquals(2, page.total());
         assertEquals(near.id(), page.items().get(0).id());
         assertEquals(far.id(), page.items().get(1).id());
+    }
+
+    @Test
+    void an_onboarded_barbershop_is_stored_with_its_key_and_removed_only_without_barbers() {
+        Barbershop shop = Barbershop.register(UUID.randomUUID(), "Shop", "Calle 1", "Neiva", new BigDecimal("2.9273"),
+                new BigDecimal("-75.2819"), null, NOW);
+        Barbershop staffed = Barbershop.register(UUID.randomUUID(), "Staffed", "Neiva", NOW);
+        Idempotency.Key key = key();
+
+        barbershops.saveNew(shop, key);
+        barbershops.saveNew(staffed, key());
+        barbers.saveNew(BarberProfile.create(UUID.randomUUID(), staffed.id(), UUID.randomUUID(), 1, null), key());
+
+        assertEquals(shop.id(), barbershops.findKey(key.key(), key.operation()).orElseThrow().resourceId());
+        assertEquals(shop.trialEndsAt(), barbershops.findById(shop.id()).orElseThrow().trialEndsAt());
+        assertTrue(barbershops.deleteIfRemovable(shop.id()));
+        assertTrue(barbershops.findById(shop.id()).isEmpty());
+        assertFalse(barbershops.deleteIfRemovable(shop.id()));
+        assertFalse(barbershops.deleteIfRemovable(staffed.id()));
+        assertTrue(barbershops.findById(staffed.id()).isPresent());
     }
 
     @Test
