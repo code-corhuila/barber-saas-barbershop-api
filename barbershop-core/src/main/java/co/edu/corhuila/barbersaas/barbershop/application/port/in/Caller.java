@@ -33,6 +33,13 @@ public record Caller(String subject, Role role, UUID barbershopId) {
         }
     }
 
+    /** Internal operations (authentication.md): only that service's token; a user's token is 403. */
+    public void requireService(String service) {
+        if (role != Role.SERVICE || !subject.equals(service)) {
+            throw new Forbidden("Only " + service + " can do this");
+        }
+    }
+
     public boolean is(Role r) {
         return role == r;
     }
