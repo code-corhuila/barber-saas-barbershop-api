@@ -49,6 +49,12 @@ The tenant comes **only** from the token's `barbershopId` claim; another barbers
 answers `404`. Every creation needs `Idempotency-Key` (a retry answers `200` with the same
 resource). Errors use the shared envelope with `traceId` = `X-Correlation-Id`.
 
+Every barber read returns `fullName` and `profilePhotoUrl`, a copy taken from identity-auth when the
+profile is created (ADR-014): `POST /api/v1/barbers` reads `GET /internal/v1/users/{id}` once with
+this service's `SERVICE_TOKEN`, answers `404` if the user is unknown or of another barbershop, `422` if
+it is not an active `BARBER`, and `503` if identity-auth does not answer — no profile is created
+unchecked. No read calls identity-auth; profiles created before have `null` until saved again.
+
 The `/internal/v1` operations are the barbershop steps of the owner-onboarding saga: create the
 barbershop in `TRIAL` (`trialEndsAt` = `createdAt` + 60 days) and, as its compensation, delete it
 while it is still `TRIAL` and has no barber (`204` also when it is already gone; otherwise `422`).
@@ -88,8 +94,6 @@ TEST_DATABASE_PASSWORD=... mvn -B verify
 
 - **Platform-admin changes.** Suspending a barbershop or assigning it a plan (OQ-10) has no
   operation here yet.
-- **Checking a new barber profile's user.** `auth-service.yaml` has no operation to read a user, so
-  `userId` is not yet verified to be a `BARBER` of the same barbershop.
 - **Clients and `/barbershops/me`.** A `CLIENT` token carries no barbershop (OQ-07), so a client
   uses the public catalog; the tenant-scoped reads answer `403` for them until OQ-07 is closed.
 - **Other service tokens.** Only the `/internal` operations accept `role: SERVICE`; the contract does
