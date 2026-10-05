@@ -3,6 +3,7 @@ package co.edu.corhuila.barbersaas.barbershop.adapter.out.persistence;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.BarbershopUseCases.Search;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.Page;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarbershopRepository;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.Idempotency;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.Barbershop;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.BarbershopStatus;
 import java.sql.ResultSet;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** Reads and writes the schema owned by barber-saas-barbershop-db. It knows SQL; the domain does not. */
 public class JdbcBarbershopRepository implements BarbershopRepository {
@@ -21,9 +23,11 @@ public class JdbcBarbershopRepository implements BarbershopRepository {
             + "logo_url, status, plan_id, timezone, cancellation_policy_hours, trial_ends_at, created_at, updated_at";
 
     private final JdbcTemplate jdbc;
+    private final TransactionTemplate tx;
 
-    public JdbcBarbershopRepository(JdbcTemplate jdbc) {
+    public JdbcBarbershopRepository(JdbcTemplate jdbc, TransactionTemplate tx) {
         this.jdbc = jdbc;
+        this.tx = tx;
     }
 
     @Override
@@ -58,6 +62,30 @@ public class JdbcBarbershopRepository implements BarbershopRepository {
                         + "updated_at = ? WHERE id = ?",
                 b.name(), b.address(), b.city(), b.latitude(), b.longitude(), b.phone(), b.whatsappNumber(),
                 b.logoUrl(), b.timezone(), b.cancellationPolicyHours(), Timestamp.from(b.updatedAt()), b.id());
+    }
+
+    @Override
+    public Optional<Idempotency.Stored> findKey(String key, String operation) {
+        return JdbcIdempotency.find(jdbc, key, operation);
+    }
+
+    @Override
+    public void saveNew(Barbershop b, Idempotency.Key key) {
+        tx.executeWithoutResult(status -> {
+            jdbc.update("INSERT INTO barbershop.barbershop (" + COLUMNS + ") "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    b.id(), b.name(), b.address(), b.city(), b.latitude(), b.longitude(), b.phone(),
+                    b.whatsappNumber(), b.logoUrl(), b.status().name(), b.planId(), b.timezone(),
+                    b.cancellationPolicyHours(), Timestamp.from(b.trialEndsAt()), Timestamp.from(b.createdAt()),
+                    Timestamp.from(b.updatedAt()));
+            JdbcIdempotency.insert(jdbc, key, b.id());
+        });
+    }
+
+    @Override
+    public boolean deleteIfRemovable(UUID id) {
+        return jdbc.update("DELETE FROM barbershop.barbershop b WHERE b.id = ? AND b.status = 'TRIAL' "
+                + "AND NOT EXISTS (SELECT 1 FROM barbershop.barber_profile p WHERE p.barbershop_id = b.id)", id) == 1;
     }
 
     private static Barbershop map(ResultSet rs) throws SQLException {

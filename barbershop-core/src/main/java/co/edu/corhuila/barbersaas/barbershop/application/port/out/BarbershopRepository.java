@@ -15,4 +15,15 @@ public interface BarbershopRepository {
     Optional<Barbershop> findById(UUID id);
 
     void update(Barbershop barbershop);
+
+    Optional<Idempotency.Stored> findKey(String key, String operation);
+
+    /** Writes the barbershop and its idempotency key in ONE transaction. */
+    void saveNew(Barbershop barbershop, Idempotency.Key key);
+
+    /**
+     * Deletes it in one statement only while it is TRIAL and has no barber profile, so a barber created
+     * meanwhile is never removed with it (its services go with it, ON DELETE CASCADE). False when not deleted.
+     */
+    boolean deleteIfRemovable(UUID id);
 }
