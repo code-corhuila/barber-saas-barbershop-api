@@ -33,6 +33,30 @@ class BarbershopTest {
     }
 
     @Test
+    void a_barbershop_registered_with_its_optional_data_also_starts_on_trial() {
+        Barbershop shop = Barbershop.register(UUID.randomUUID(), "El Clásico", " Calle 5 # 10-20 ", "Neiva",
+                new BigDecimal("2.9273"), new BigDecimal("-75.2819"), "", NOW);
+
+        assertEquals(BarbershopStatus.TRIAL, shop.status());
+        assertEquals(NOW.plus(Duration.ofDays(60)), shop.trialEndsAt());
+        assertEquals(NOW, shop.createdAt());
+        assertEquals("Calle 5 # 10-20", shop.address());
+        assertNull(shop.phone());
+        assertNull(shop.planId());
+    }
+
+    @Test
+    void only_a_trial_barbershop_without_barbers_can_be_removed() {
+        Barbershop trial = registered();
+        Barbershop active = new Barbershop(trial.id(), trial.name(), null, trial.city(), null, null, null, null, null,
+                BarbershopStatus.ACTIVE, null, trial.timezone(), 2, trial.trialEndsAt(), NOW, NOW);
+
+        trial.requireRemovable(false);
+        assertThrows(BusinessRuleViolation.class, () -> trial.requireRemovable(true));
+        assertThrows(BusinessRuleViolation.class, () -> active.requireRemovable(false));
+    }
+
+    @Test
     void only_active_and_trial_barbershops_are_visible_to_clients() {
         assertTrue(BarbershopStatus.TRIAL.visible());
         assertTrue(BarbershopStatus.ACTIVE.visible());
