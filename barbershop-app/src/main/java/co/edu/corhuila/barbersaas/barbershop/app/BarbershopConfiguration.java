@@ -70,10 +70,11 @@ public class BarbershopConfiguration {
                 new TransactionTemplate(new DataSourceTransactionManager(dataSource)));
     }
 
+    /** In memory, both share the barbers so a barbershop with barbers is not removed, as in SQL. */
     @Bean
-    BarbershopRepository barbershopRepository(Database database) {
-        return database.present().<BarbershopRepository>map(d -> new JdbcBarbershopRepository(d.jdbc()))
-                .orElseGet(InMemoryBarbershopRepository::new);
+    BarbershopRepository barbershopRepository(Database database, BarberRepository barbers) {
+        return database.present().<BarbershopRepository>map(d -> new JdbcBarbershopRepository(d.jdbc(), d.tx()))
+                .orElseGet(() -> new InMemoryBarbershopRepository(barbers));
     }
 
     @Bean

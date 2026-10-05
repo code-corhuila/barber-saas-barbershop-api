@@ -2,8 +2,11 @@ package co.edu.corhuila.barbersaas.barbershop.adapter.out.persistence;
 
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.BarbershopUseCases.Search;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.Page;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarberRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarbershopRepository;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.Idempotency;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.Barbershop;
+import co.edu.corhuila.barbersaas.barbershop.domain.model.BarbershopStatus;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
@@ -14,8 +17,15 @@ import java.util.concurrent.ConcurrentHashMap;
 public class InMemoryBarbershopRepository implements BarbershopRepository {
 
     private final Map<UUID, Barbershop> rows = new ConcurrentHashMap<>();
+    private final Map<String, Idempotency.Stored> keys = new ConcurrentHashMap<>();
+    private final BarberRepository barbers;
 
-    /** Barbershops are created by platform-admin (OQ-10); without a database, tests seed them here. */
+    /** The barbers are asked only to refuse removing a barbershop that has them, as the SQL does. */
+    public InMemoryBarbershopRepository(BarberRepository barbers) {
+        this.barbers = barbers;
+    }
+
+    /** Tests seed barbershops here without going through the onboarding saga. */
     public void put(Barbershop barbershop) {
         rows.put(barbershop.id(), barbershop);
     }
@@ -41,5 +51,26 @@ public class InMemoryBarbershopRepository implements BarbershopRepository {
     @Override
     public void update(Barbershop barbershop) {
         rows.put(barbershop.id(), barbershop);
+    }
+
+    @Override
+    public Optional<Idempotency.Stored> findKey(String key, String operation) {
+        return Optional.ofNullable(keys.get(operation + " " + key));
+    }
+
+    @Override
+    public synchronized void saveNew(Barbershop barbershop, Idempotency.Key key) {
+        rows.put(barbershop.id(), barbershop);
+        keys.put(key.operation() + " " + key.key(), new Idempotency.Stored(barbershop.id(), key.requestHash()));
+    }
+
+    @Override
+    public synchronized boolean deleteIfRemovable(UUID id) {
+        Barbershop b = rows.get(id);
+        if (b == null || b.status() != BarbershopStatus.TRIAL || barbers.page(id, null, new Page.Request(1, 1)).total() > 0) {
+            return false;
+        }
+        rows.remove(id);
+        return true;
     }
 }

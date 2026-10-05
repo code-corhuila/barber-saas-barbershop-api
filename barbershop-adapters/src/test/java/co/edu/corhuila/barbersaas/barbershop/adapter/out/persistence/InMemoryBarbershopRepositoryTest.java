@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 class InMemoryBarbershopRepositoryTest {
 
     private static final Instant NOW = Instant.parse("2026-10-02T15:00:00Z");
-    private final InMemoryBarbershopRepository repository = new InMemoryBarbershopRepository();
+    private final InMemoryBarbershopRepository repository = new InMemoryBarbershopRepository(new InMemoryBarberRepository());
 
     private Barbershop at(String name, String lat, String lng, Instant created) {
         Barbershop b = Barbershop.register(UUID.randomUUID(), name, "Neiva", created);
