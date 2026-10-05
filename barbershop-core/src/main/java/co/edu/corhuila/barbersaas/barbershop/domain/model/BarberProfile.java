@@ -9,7 +9,8 @@ import java.util.UUID;
 
 /**
  * The working profile of a barber (barbershop.barber_profile) with its specialties. The name and
- * photo live in identity_auth.app_user: only {@code userId} is kept here (DEC-SHOP-04, OQ-08).
+ * photo belong to identity_auth.app_user; this keeps the copy taken when the profile was created
+ * (DEC-SHOP-04, ADR-014), null for profiles created before. Nothing here changes that copy.
  */
 public final class BarberProfile {
 
@@ -18,17 +19,22 @@ public final class BarberProfile {
     private final UUID id;
     private final UUID barbershopId;
     private final UUID userId;
+    private final String fullName;
+    private final String profilePhotoUrl;
     private final int experienceYears;
     private final String bio;
     private final BigDecimal ratingAvg;
     private final int ratingCount;
     private final List<BarberSpecialty> specialties;
 
-    public BarberProfile(UUID id, UUID barbershopId, UUID userId, int experienceYears, String bio,
-                         BigDecimal ratingAvg, int ratingCount, List<BarberSpecialty> specialties) {
+    public BarberProfile(UUID id, UUID barbershopId, UUID userId, String fullName, String profilePhotoUrl,
+                         int experienceYears, String bio, BigDecimal ratingAvg, int ratingCount,
+                         List<BarberSpecialty> specialties) {
         this.id = Objects.requireNonNull(id);
         this.barbershopId = Objects.requireNonNull(barbershopId);
         this.userId = Objects.requireNonNull(userId);
+        this.fullName = Rules.optionalText(fullName, 120, "full name");
+        this.profilePhotoUrl = profilePhotoUrl == null || profilePhotoUrl.isBlank() ? null : profilePhotoUrl.strip();
         this.experienceYears = Rules.atLeast(experienceYears, 0, "years of experience");
         this.bio = Rules.optionalText(bio, 500, "bio");
         if (ratingAvg.signum() < 0 || ratingAvg.compareTo(MAX_RATING) > 0 || ratingCount < 0) {
@@ -40,19 +46,22 @@ public final class BarberProfile {
     }
 
     /** A new profile has no ratings yet: they are fed by reviews (06-data/models.md §11). */
-    public static BarberProfile create(UUID id, UUID barbershopId, UUID userId, int experienceYears, String bio) {
-        return new BarberProfile(id, barbershopId, userId, experienceYears, bio, BigDecimal.ZERO, 0, List.of());
+    public static BarberProfile create(UUID id, UUID barbershopId, UUID userId, String fullName,
+                                       String profilePhotoUrl, int experienceYears, String bio) {
+        return new BarberProfile(id, barbershopId, userId, fullName, profilePhotoUrl, experienceYears, bio,
+                BigDecimal.ZERO, 0, List.of());
     }
 
     /** A null argument was not sent; {@code bio} empty clears it. The rating is never edited here. */
     public BarberProfile edit(Optional<Integer> experienceYears, Optional<String> bio) {
-        return new BarberProfile(id, barbershopId, userId,
+        return new BarberProfile(id, barbershopId, userId, fullName, profilePhotoUrl,
                 experienceYears == null ? this.experienceYears : experienceYears.orElse(0),
                 bio == null ? this.bio : bio.orElse(null), ratingAvg, ratingCount, specialties);
     }
 
     public BarberProfile withSpecialties(List<BarberSpecialty> specialties) {
-        return new BarberProfile(id, barbershopId, userId, experienceYears, bio, ratingAvg, ratingCount, specialties);
+        return new BarberProfile(id, barbershopId, userId, fullName, profilePhotoUrl, experienceYears, bio, ratingAvg,
+                ratingCount, specialties);
     }
 
     /** A BARBER may edit only the profile whose user is the token's subject. */
@@ -63,6 +72,8 @@ public final class BarberProfile {
     public UUID id() { return id; }
     public UUID barbershopId() { return barbershopId; }
     public UUID userId() { return userId; }
+    public String fullName() { return fullName; }
+    public String profilePhotoUrl() { return profilePhotoUrl; }
     public int experienceYears() { return experienceYears; }
     public String bio() { return bio; }
     public BigDecimal ratingAvg() { return ratingAvg; }
