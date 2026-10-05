@@ -13,6 +13,9 @@ services:
       # Only the public half: this service validates tokens, it never signs them.
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?run barber-saas-infra/scripts/dev-keys.sh}
       DB_POOL_MAX: "10"
+      # identity-auth's internal user read for a new barber profile (ADR-014), with this service's own token.
+      IDENTITY_AUTH_API_URL: http://identity-auth-api:8080
+      SERVICE_TOKEN: ${BARBERSHOP_SERVICE_TOKEN:?run barber-saas-infra/scripts/dev-keys.sh}
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080 && printf \"GET /health HTTP/1.0\r\n\r\n\" >&3 && grep -q ok <&3'"]
       interval: 5s
