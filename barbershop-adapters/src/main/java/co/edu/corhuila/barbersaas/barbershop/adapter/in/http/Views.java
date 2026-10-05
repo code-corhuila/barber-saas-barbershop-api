@@ -52,11 +52,11 @@ final class Views {
     }
 
     /** DEC-SHOP-04: no fullName and no photo; they live in identity-auth. */
-    record BarberView(UUID id, UUID userId, int experienceYears, String bio, BigDecimal ratingAvg, int ratingCount,
-                      List<SpecialtyView> specialties) {
+    record BarberView(UUID id, UUID userId, String fullName, String profilePhotoUrl, int experienceYears, String bio,
+                      BigDecimal ratingAvg, int ratingCount, List<SpecialtyView> specialties) {
         static BarberView of(BarberProfile p) {
-            return new BarberView(p.id(), p.userId(), p.experienceYears(), p.bio(), p.ratingAvg(), p.ratingCount(),
-                    p.specialties().stream().map(SpecialtyView::of).toList());
+            return new BarberView(p.id(), p.userId(), p.fullName(), p.profilePhotoUrl(), p.experienceYears(), p.bio(),
+                    p.ratingAvg(), p.ratingCount(), p.specialties().stream().map(SpecialtyView::of).toList());
         }
     }
 }
