@@ -110,11 +110,16 @@ class JdbcRepositoriesTest {
     @Test
     void profiles_come_with_their_specialties_and_one_per_user() {
         Barbershop shop = insertBarbershop("Neiva", null, null);
-        BarberProfile p = BarberProfile.create(UUID.randomUUID(), shop.id(), UUID.randomUUID(), null, null, 3, "Fades");
+        BarberProfile p = BarberProfile.create(UUID.randomUUID(), shop.id(), UUID.randomUUID(), "Juan Perez",
+                "https://cdn.example/juan.jpg", 3, "Fades");
         barbers.saveNew(p, key());
         barbers.saveNewSpecialty(BarberSpecialty.create(UUID.randomUUID(), p.id(), "Fade"), key());
+        barbers.update(p.edit(java.util.Optional.of(4), null));
 
-        assertEquals(1, barbers.findById(shop.id(), p.id()).orElseThrow().specialties().size());
+        BarberProfile stored = barbers.findById(shop.id(), p.id()).orElseThrow();
+        assertEquals(1, stored.specialties().size());
+        assertEquals("Juan Perez", stored.fullName());
+        assertEquals("https://cdn.example/juan.jpg", barbers.page(shop.id(), null, FIRST).items().get(0).profilePhotoUrl());
         assertEquals(1, barbers.page(shop.id(), "Fade", FIRST).total());
         assertEquals(0, barbers.page(shop.id(), "Beard", FIRST).total());
         assertThrows(UserAlreadyHasProfile.class, () -> barbers.saveNew(
