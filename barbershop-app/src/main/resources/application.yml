@@ -29,3 +29,7 @@ barbershop:
     password: ${DATABASE_PASSWORD:}
     pool-max: ${DB_POOL_MAX:10}
     statement-timeout-ms: ${DB_STATEMENT_TIMEOUT_MS:5000}
+  # identity-auth's internal user read for a new barber profile (ADR-014). Empty: creating a profile answers 503.
+  identity-auth-api-url: ${IDENTITY_AUTH_API_URL:}
+  # This service's own token (sub: barber-saas-barbershop-api), never a user's.
+  service-token: ${SERVICE_TOKEN:}
