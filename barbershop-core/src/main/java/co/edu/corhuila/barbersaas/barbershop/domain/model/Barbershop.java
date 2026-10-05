@@ -61,8 +61,27 @@ public final class Barbershop {
 
     /** INV-SHOP-001: a new barbershop is on TRIAL and its trial ends 60 days later, fixed once. */
     public static Barbershop register(UUID id, String name, String city, Instant now) {
-        return new Barbershop(id, name, null, city, null, null, null, null, null, BarbershopStatus.TRIAL, null,
-                DEFAULT_TIMEZONE, DEFAULT_CANCELLATION_POLICY_HOURS, now.plus(TRIAL), now, now);
+        return register(id, name, null, city, null, null, null, now);
+    }
+
+    /** The same rule with the optional data an owner gives at sign-up (DEC-SHOP-05). */
+    public static Barbershop register(UUID id, String name, String address, String city, BigDecimal latitude,
+                                      BigDecimal longitude, String phone, Instant now) {
+        return new Barbershop(id, name, address, city, latitude, longitude, phone, null, null, BarbershopStatus.TRIAL,
+                null, DEFAULT_TIMEZONE, DEFAULT_CANCELLATION_POLICY_HOURS, now.plus(TRIAL), now, now);
+    }
+
+    /**
+     * DEC-SHOP-05: only the compensation of a sign-up removes a barbershop, so only one still on TRIAL
+     * and without barbers; anything else is a real barbershop a person must decide about.
+     */
+    public void requireRemovable(boolean hasBarbers) {
+        if (status != BarbershopStatus.TRIAL) {
+            throw new BusinessRuleViolation("Only a barbershop on trial can be removed");
+        }
+        if (hasBarbers) {
+            throw new BusinessRuleViolation("A barbershop with barbers cannot be removed");
+        }
     }
 
     /** Applies the fields that were sent; status, plan and the trial end never change here. */
