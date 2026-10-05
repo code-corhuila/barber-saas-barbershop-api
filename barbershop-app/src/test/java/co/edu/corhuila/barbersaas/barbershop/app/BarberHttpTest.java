@@ -17,7 +17,7 @@ import org.springframework.http.MediaType;
 class BarberHttpTest extends HttpTest {
 
     private final UUID shop = UUID.randomUUID();
-    private final UUID barberUser = UUID.randomUUID();
+    private final UUID barberUser = identityBarber("Juan Perez", shop);
     private final String owner = bearer("ADMIN_BARBERSHOP", shop);
     private final String barber = bearer(barberUser, "BARBER", shop);
 
@@ -27,6 +27,7 @@ class BarberHttpTest extends HttpTest {
                         .content("{\"userId\":\"" + barberUser + "\",\"experienceYears\":3,\"bio\":\"Fades\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().exists("Location"))
+                .andExpect(jsonPath("$.fullName").value("Juan Perez"))
                 .andExpect(jsonPath("$.ratingAvg").value(0))
                 .andExpect(jsonPath("$.specialties").isEmpty())
                 .andReturn().getResponse().getContentAsString();
@@ -46,6 +47,47 @@ class BarberHttpTest extends HttpTest {
                         .header("Idempotency-Key", "key-" + UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":\"not-a-uuid\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    private org.springframework.test.web.servlet.ResultActions createFor(UUID user) throws Exception {
+        return http.perform(post("/api/v1/barbers").header("Authorization", owner)
+                .header("Idempotency-Key", "key-" + UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"userId\":\"" + user + "\"}"));
+    }
+
+    @Test
+    void the_user_is_checked_against_identity_auth_before_the_profile_is_created() throws Exception {
+        createFor(UUID.randomUUID()).andExpect(status().isNotFound());
+        createFor(identityBarber("Ana", UUID.randomUUID())).andExpect(status().isNotFound());
+        createFor(identityUser("Luis", "CLIENT", shop, true)).andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error").value("BUSINESS_RULE_VIOLATION"));
+        createFor(identityUser("Eva", "BARBER", shop, false)).andExpect(status().isUnprocessableEntity());
+        createFor(identityFailing()).andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error").value("SERVICE_UNAVAILABLE"));
+
+        http.perform(get("/api/v1/barbers").header("Authorization", owner)).andExpect(jsonPath("$.meta.total").value(0));
+    }
+
+    @Test
+    void the_name_is_in_the_owner_list_and_in_the_public_catalog() throws Exception {
+        String created = http.perform(post("/internal/v1/barbershops")
+                        .header("Authorization", serviceBearer("barber-saas-workflow"))
+                        .header("Idempotency-Key", "signup-" + UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"El Clasico\",\"city\":\"Neiva\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        UUID openShop = UUID.fromString(JsonPath.read(created, "$.id"));
+        UUID user = identityBarber("Carlos Leal", openShop);
+        http.perform(post("/api/v1/barbers").header("Authorization", bearer("ADMIN_BARBERSHOP", openShop))
+                        .header("Idempotency-Key", "key-" + UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"userId\":\"" + user + "\"}"))
+                .andExpect(status().isCreated());
+
+        http.perform(get("/api/v1/barbers").header("Authorization", bearer("CLIENT", openShop)))
+                .andExpect(jsonPath("$.data[0].fullName").value("Carlos Leal"))
+                .andExpect(jsonPath("$.data[0].profilePhotoUrl").isEmpty());
+        http.perform(get("/api/v1/barbershops/" + openShop + "/barbers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].fullName").value("Carlos Leal"));
     }
 
     @Test
