@@ -12,6 +12,7 @@ import co.edu.corhuila.barbersaas.barbershop.adapter.out.persistence.JdbcService
 import co.edu.corhuila.barbersaas.barbershop.adapter.out.persistence.UuidGenerator;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.BarberUseCases;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.BarbershopUseCases;
+import co.edu.corhuila.barbersaas.barbershop.application.port.in.InternalBarbershopUseCases;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.ServiceUseCases;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarberRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarbershopRepository;
@@ -19,6 +20,7 @@ import co.edu.corhuila.barbersaas.barbershop.application.port.out.ServiceReposit
 import co.edu.corhuila.barbersaas.barbershop.application.usecase.ManageBarbers;
 import co.edu.corhuila.barbersaas.barbershop.application.usecase.ManageBarbershops;
 import co.edu.corhuila.barbersaas.barbershop.application.usecase.ManageServices;
+import co.edu.corhuila.barbersaas.barbershop.application.usecase.OnboardBarbershops;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -93,6 +95,11 @@ public class BarbershopConfiguration {
     BarbershopUseCases barbershopUseCases(BarbershopRepository barbershops, ServiceRepository services,
                                           BarberRepository barbers) {
         return new ManageBarbershops(barbershops, services, barbers, Clock.systemUTC());
+    }
+
+    @Bean
+    InternalBarbershopUseCases internalBarbershopUseCases(BarbershopRepository barbershops, BarberRepository barbers) {
+        return new OnboardBarbershops(barbershops, barbers, new UuidGenerator(), Clock.systemUTC());
     }
 
     @Bean
