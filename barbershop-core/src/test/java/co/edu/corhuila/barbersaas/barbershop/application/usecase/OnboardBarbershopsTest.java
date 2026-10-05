@@ -92,7 +92,7 @@ class OnboardBarbershopsTest {
     @Test
     void a_barbershop_with_barbers_is_not_removed() {
         Barbershop shop = useCases.create(WORKFLOW, DATA, "signup-0006").value();
-        barbers.add(BarberProfile.create(UUID.randomUUID(), shop.id(), UUID.randomUUID(), 1, null));
+        barbers.add(BarberProfile.create(UUID.randomUUID(), shop.id(), UUID.randomUUID(), null, null, 1, null));
 
         assertThrows(BusinessRuleViolation.class, () -> useCases.remove(WORKFLOW, shop.id()));
         assertTrue(barbershops.rows.containsKey(shop.id()));

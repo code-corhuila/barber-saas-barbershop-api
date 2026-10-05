@@ -6,6 +6,7 @@ import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarberReposito
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarbershopRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Idempotency;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.ServiceRepository;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.Users;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.BarberProfile;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.BarberSpecialty;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.Barbershop;
@@ -106,6 +107,27 @@ final class Fakes {
         @Override
         public void update(Service s) {
             rows.put(s.id(), s);
+        }
+    }
+
+    /** identity-auth's internal user read: the users it knows, and whether it answers at all. */
+    static final class UsersDirectory implements Users {
+        final Map<UUID, User> rows = new HashMap<>();
+        boolean down;
+        int calls;
+
+        User add(User u) {
+            rows.put(u.id(), u);
+            return u;
+        }
+
+        @Override
+        public Optional<User> find(UUID id) {
+            calls++;
+            if (down) {
+                throw new Unavailable("identity-auth-api is down");
+            }
+            return Optional.ofNullable(rows.get(id));
         }
     }
 
