@@ -111,7 +111,7 @@ class InternalBarbershopHttpTest extends HttpTest {
         String id = createdId();
         http.perform(post("/api/v1/barbers").header("Authorization", bearer("ADMIN_BARBERSHOP", UUID.fromString(id)))
                         .header("Idempotency-Key", "key-" + UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"userId\":\"" + UUID.randomUUID() + "\"}"))
+                        .content("{\"userId\":\"" + identityBarber("Juan", UUID.fromString(id)) + "\"}"))
                 .andExpect(status().isCreated());
 
         http.perform(delete(PATH + "/" + id).header("Authorization", workflow))
