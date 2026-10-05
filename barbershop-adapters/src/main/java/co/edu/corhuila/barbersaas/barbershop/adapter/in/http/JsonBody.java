@@ -129,6 +129,19 @@ final class JsonBody {
         return Optional.of(v.decimalValue());
     }
 
+    /** Absent or null: null. The schema's minimum and maximum are shape rules: outside them answers 400. */
+    BigDecimal number(String field, int min, int max) {
+        Optional<BigDecimal> v = optionalNumber(field);
+        if (v == null || v.isEmpty()) {
+            return null;
+        }
+        if (v.get().compareTo(BigDecimal.valueOf(min)) < 0 || v.get().compareTo(BigDecimal.valueOf(max)) > 0) {
+            errors.add(new FieldError(field, "must be between " + min + " and " + max));
+            return null;
+        }
+        return v.get();
+    }
+
     UUID uuid(String field) {
         JsonNode v = node.get(field);
         try {
