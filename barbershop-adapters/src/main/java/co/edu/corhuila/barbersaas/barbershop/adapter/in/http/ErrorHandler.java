@@ -4,6 +4,7 @@ import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.ApiError.Validation
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.ApplicationException.Forbidden;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.ApplicationException.IdempotencyKeyReused;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.ApplicationException.NotFound;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.Users;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.DomainException.BusinessRuleViolation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +54,14 @@ public class ErrorHandler {
     @ExceptionHandler({BusinessRuleViolation.class, IdempotencyKeyReused.class})
     ResponseEntity<ApiError> businessRule(RuntimeException e) {
         return respond(HttpStatus.UNPROCESSABLE_ENTITY, ApiError.of(ApiError.BUSINESS_RULE_VIOLATION, e.getMessage()));
+    }
+
+    /** identity-auth did not answer: the profile is not created (ADR-014); the cause goes to the log only. */
+    @ExceptionHandler(Users.Unavailable.class)
+    ResponseEntity<ApiError> unavailable(Users.Unavailable e) {
+        log.error("dependency failed: {}", e.getMessage());
+        return respond(HttpStatus.SERVICE_UNAVAILABLE,
+                ApiError.of(ApiError.SERVICE_UNAVAILABLE, "the barber's account could not be checked, try again"));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
