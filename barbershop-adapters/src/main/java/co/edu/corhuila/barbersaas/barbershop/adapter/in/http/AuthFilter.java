@@ -11,7 +11,10 @@ import java.util.regex.Pattern;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/** Validates the bearer token on every route under /api/ except the anonymous discovery catalog. */
+/**
+ * Validates the bearer token on every route under /api/ except the anonymous discovery catalog, and on
+ * every route under /internal/ (authentication.md, "Internal operations": never anonymous).
+ */
 public class AuthFilter extends OncePerRequestFilter {
 
     public static final String CALLER_ATTRIBUTE = "auth.caller";
@@ -31,6 +34,9 @@ public class AuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
+        if (path.startsWith("/internal/")) {
+            return false;
+        }
         if (!path.startsWith("/api/")) {
             return true;
         }
