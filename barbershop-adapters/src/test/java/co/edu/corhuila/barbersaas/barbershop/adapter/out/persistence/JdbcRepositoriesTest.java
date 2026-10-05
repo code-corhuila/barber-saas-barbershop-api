@@ -80,7 +80,7 @@ class JdbcRepositoriesTest {
 
         barbershops.saveNew(shop, key);
         barbershops.saveNew(staffed, key());
-        barbers.saveNew(BarberProfile.create(UUID.randomUUID(), staffed.id(), UUID.randomUUID(), 1, null), key());
+        barbers.saveNew(BarberProfile.create(UUID.randomUUID(), staffed.id(), UUID.randomUUID(), null, null, 1, null), key());
 
         assertEquals(shop.id(), barbershops.findKey(key.key(), key.operation()).orElseThrow().resourceId());
         assertEquals(shop.trialEndsAt(), barbershops.findById(shop.id()).orElseThrow().trialEndsAt());
@@ -110,7 +110,7 @@ class JdbcRepositoriesTest {
     @Test
     void profiles_come_with_their_specialties_and_one_per_user() {
         Barbershop shop = insertBarbershop("Neiva", null, null);
-        BarberProfile p = BarberProfile.create(UUID.randomUUID(), shop.id(), UUID.randomUUID(), 3, "Fades");
+        BarberProfile p = BarberProfile.create(UUID.randomUUID(), shop.id(), UUID.randomUUID(), null, null, 3, "Fades");
         barbers.saveNew(p, key());
         barbers.saveNewSpecialty(BarberSpecialty.create(UUID.randomUUID(), p.id(), "Fade"), key());
 
@@ -118,6 +118,6 @@ class JdbcRepositoriesTest {
         assertEquals(1, barbers.page(shop.id(), "Fade", FIRST).total());
         assertEquals(0, barbers.page(shop.id(), "Beard", FIRST).total());
         assertThrows(UserAlreadyHasProfile.class, () -> barbers.saveNew(
-                BarberProfile.create(UUID.randomUUID(), shop.id(), p.userId(), 0, null), key()));
+                BarberProfile.create(UUID.randomUUID(), shop.id(), p.userId(), null, null, 0, null), key()));
     }
 }

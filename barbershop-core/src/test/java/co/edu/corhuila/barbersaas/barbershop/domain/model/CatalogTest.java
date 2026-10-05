@@ -56,21 +56,37 @@ class CatalogTest {
 
     @Test
     void a_barber_profile_starts_without_ratings_and_validates_its_bio() {
-        BarberProfile p = BarberProfile.create(UUID.randomUUID(), SHOP, UUID.randomUUID(), 3, "Fades");
+        BarberProfile p = BarberProfile.create(UUID.randomUUID(), SHOP, UUID.randomUUID(), null, null, 3, "Fades");
 
         assertEquals(BigDecimal.ZERO, p.ratingAvg());
         assertEquals(0, p.ratingCount());
         assertEquals(List.of(), p.specialties());
         assertThrows(BusinessRuleViolation.class,
-                () -> BarberProfile.create(UUID.randomUUID(), SHOP, UUID.randomUUID(), -1, null));
+                () -> BarberProfile.create(UUID.randomUUID(), SHOP, UUID.randomUUID(), null, null, -1, null));
         assertThrows(BusinessRuleViolation.class,
-                () -> BarberProfile.create(UUID.randomUUID(), SHOP, UUID.randomUUID(), 0, "b".repeat(501)));
+                () -> BarberProfile.create(UUID.randomUUID(), SHOP, UUID.randomUUID(), null, null, 0, "b".repeat(501)));
+    }
+
+    @Test
+    void a_profile_keeps_the_name_and_photo_snapshot_and_an_edit_never_changes_it() {
+        BarberProfile p = BarberProfile.create(UUID.randomUUID(), SHOP, UUID.randomUUID(), " Juan Pérez ",
+                "https://cdn.example/juan.jpg", 3, null);
+
+        BarberProfile edited = p.edit(Optional.of(5), Optional.of("Fades"));
+
+        assertEquals("Juan Pérez", edited.fullName());
+        assertEquals("https://cdn.example/juan.jpg", edited.profilePhotoUrl());
+        assertEquals("Juan Pérez", edited.withSpecialties(List.of()).fullName());
+        assertEquals(null, BarberProfile.create(UUID.randomUUID(), SHOP, UUID.randomUUID(), null, " ", 0, null)
+                .profilePhotoUrl());
+        assertThrows(BusinessRuleViolation.class, () -> BarberProfile.create(UUID.randomUUID(), SHOP,
+                UUID.randomUUID(), "x".repeat(121), null, 0, null));
     }
 
     @Test
     void only_the_owner_of_a_profile_is_its_barber() {
         UUID user = UUID.randomUUID();
-        BarberProfile p = BarberProfile.create(UUID.randomUUID(), SHOP, user, 0, null);
+        BarberProfile p = BarberProfile.create(UUID.randomUUID(), SHOP, user, null, null, 0, null);
 
         assertTrue(p.belongsTo(user));
         assertFalse(p.belongsTo(UUID.randomUUID()));
@@ -78,7 +94,7 @@ class CatalogTest {
 
     @Test
     void editing_a_profile_changes_only_what_was_sent() {
-        BarberProfile p = BarberProfile.create(UUID.randomUUID(), SHOP, UUID.randomUUID(), 3, "Fades");
+        BarberProfile p = BarberProfile.create(UUID.randomUUID(), SHOP, UUID.randomUUID(), null, null, 3, "Fades");
 
         BarberProfile edited = p.edit(Optional.of(5), null);
         BarberProfile cleared = edited.edit(null, Optional.empty());
