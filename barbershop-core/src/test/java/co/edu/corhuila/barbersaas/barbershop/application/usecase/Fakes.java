@@ -27,6 +27,7 @@ final class Fakes {
 
     static final class Barbershops implements BarbershopRepository {
         final Map<UUID, Barbershop> rows = new LinkedHashMap<>();
+        final Map<String, Idempotency.Stored> keys = new HashMap<>();
 
         Barbershop add(Barbershop b) {
             rows.put(b.id(), b);
@@ -50,6 +51,22 @@ final class Fakes {
         @Override
         public void update(Barbershop b) {
             rows.put(b.id(), b);
+        }
+
+        @Override
+        public Optional<Idempotency.Stored> findKey(String key, String operation) {
+            return Optional.ofNullable(keys.get(operation + " " + key));
+        }
+
+        @Override
+        public void saveNew(Barbershop b, Idempotency.Key key) {
+            rows.put(b.id(), b);
+            keys.put(key.operation() + " " + key.key(), new Idempotency.Stored(b.id(), key.requestHash()));
+        }
+
+        @Override
+        public boolean deleteIfRemovable(UUID id) {
+            return rows.remove(id) != null;
         }
     }
 
