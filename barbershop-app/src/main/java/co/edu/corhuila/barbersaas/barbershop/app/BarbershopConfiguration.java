@@ -3,6 +3,7 @@ package co.edu.corhuila.barbersaas.barbershop.app;
 import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.AuthFilter;
 import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.CorrelationFilter;
 import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.Rs256Verifier;
+import co.edu.corhuila.barbersaas.barbershop.adapter.out.http.HttpUsers;
 import co.edu.corhuila.barbersaas.barbershop.adapter.out.persistence.InMemoryBarberRepository;
 import co.edu.corhuila.barbersaas.barbershop.adapter.out.persistence.InMemoryBarbershopRepository;
 import co.edu.corhuila.barbersaas.barbershop.adapter.out.persistence.InMemoryServiceRepository;
@@ -17,6 +18,7 @@ import co.edu.corhuila.barbersaas.barbershop.application.port.in.ServiceUseCases
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarberRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarbershopRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.ServiceRepository;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.Users;
 import co.edu.corhuila.barbersaas.barbershop.application.usecase.ManageBarbers;
 import co.edu.corhuila.barbersaas.barbershop.application.usecase.ManageBarbershops;
 import co.edu.corhuila.barbersaas.barbershop.application.usecase.ManageServices;
@@ -107,9 +109,16 @@ public class BarbershopConfiguration {
         return new ManageServices(services, new UuidGenerator(), Clock.systemUTC());
     }
 
+    /** identity-auth's internal user read, with this service's own token; unset, no profile is created (503). */
     @Bean
-    BarberUseCases barberUseCases(BarberRepository barbers) {
-        return new ManageBarbers(barbers, new UuidGenerator());
+    Users users(@Value("${barbershop.identity-auth-api-url:}") String url,
+                @Value("${barbershop.service-token:}") String serviceToken) {
+        return new HttpUsers(url, serviceToken);
+    }
+
+    @Bean
+    BarberUseCases barberUseCases(BarberRepository barbers, Users users) {
+        return new ManageBarbers(barbers, users, new UuidGenerator());
     }
 
     /** JWT_PUBLIC_KEY: the PEM itself; a one-line value with literal \n escapes, as an env file holds it, is accepted. */
