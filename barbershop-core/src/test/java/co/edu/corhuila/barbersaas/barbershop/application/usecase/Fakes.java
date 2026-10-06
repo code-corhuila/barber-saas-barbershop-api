@@ -2,6 +2,7 @@ package co.edu.corhuila.barbersaas.barbershop.application.usecase;
 
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.BarbershopUseCases.Search;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.Page;
+import co.edu.corhuila.barbersaas.barbershop.application.port.in.PlatformBarbershopUseCases;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarberRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarbershopRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Idempotency;
@@ -10,6 +11,7 @@ import co.edu.corhuila.barbersaas.barbershop.application.port.out.Users;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.BarberProfile;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.BarberSpecialty;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.Barbershop;
+import co.edu.corhuila.barbersaas.barbershop.domain.model.BarbershopStatus;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.Service;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -29,6 +31,8 @@ final class Fakes {
     static final class Barbershops implements BarbershopRepository {
         final Map<UUID, Barbershop> rows = new LinkedHashMap<>();
         final Map<String, Idempotency.Stored> keys = new HashMap<>();
+        /** Simulates another request changing the status between the read and the conditional write. */
+        boolean changedBehindOurBack;
 
         Barbershop add(Barbershop b) {
             rows.put(b.id(), b);
@@ -68,6 +72,26 @@ final class Fakes {
         @Override
         public boolean deleteIfRemovable(UUID id) {
             return rows.remove(id) != null;
+        }
+
+        @Override
+        public Page<Barbershop> searchAll(PlatformBarbershopUseCases.Filter f, Page.Request page) {
+            return Page.of(rows.values().stream()
+                    .filter(b -> f.status() == null || b.status() == f.status())
+                    .filter(b -> f.planId() == null || f.planId().equals(b.planId()))
+                    .filter(b -> f.trialEndsBefore() == null || b.trialEndsAt().isBefore(f.trialEndsBefore()))
+                    .sorted(Comparator.comparing(Barbershop::createdAt).reversed())
+                    .toList(), page);
+        }
+
+        @Override
+        public boolean updateLifecycle(Barbershop b, BarbershopStatus expectedStatus) {
+            Barbershop current = rows.get(b.id());
+            if (changedBehindOurBack || current == null || current.status() != expectedStatus) {
+                return false;
+            }
+            rows.put(b.id(), b);
+            return true;
         }
     }
 
