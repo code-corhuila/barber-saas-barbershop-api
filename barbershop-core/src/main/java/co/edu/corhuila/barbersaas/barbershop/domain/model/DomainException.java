@@ -13,4 +13,11 @@ public abstract class DomainException extends RuntimeException {
             super(message);
         }
     }
+
+    /** A lifecycle change the state machine does not allow: 409 INVALID_STATUS_TRANSITION (DEC-SHOP-06). */
+    public static class InvalidStatusTransition extends DomainException {
+        public InvalidStatusTransition(String message) {
+            super(message);
+        }
+    }
 }
