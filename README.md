@@ -60,17 +60,17 @@ barbershop in `TRIAL` (`trialEndsAt` = `createdAt` + 60 days) and, as its compen
 while it is still `TRIAL` and has no barber (`204` also when it is already gone; otherwise `422`).
 They answer only on the internal network: the api-gateway routes `/api/v1`, never `/internal`. A
 user's token answers `403`, and so does the token of another service. To call one by hand in
-`develop`, use `WORKFLOW_SERVICE_TOKEN` of `barber-saas-infra/env/dev.env` (or
+`develop`, use `WORKFLOW_SERVICE_TOKEN` of `barber-saas-infra-postgres/env/dev.env` (or
 `./scripts/dev-token.sh barber-saas-workflow SERVICE 60`).
 
 ### How to start it
 
-As part of the platform: `./scripts/up.sh dev` in `barber-saas-infra`. Alone, without a database
+As part of the platform: `./scripts/up.sh dev` in `barber-saas-infra-postgres`. Alone, without a database
 (in-memory repositories):
 
 ```bash
 mvn -B -DskipTests package
-JWT_PUBLIC_KEY="$(cat ../barber-saas-infra/keys/jwt-public.pem)" java -jar barbershop-app/target/barbershop-app-0.1.0.jar
+JWT_PUBLIC_KEY="$(cat ../barber-saas-infra-postgres/keys/jwt-public.pem)" java -jar barbershop-app/target/barbershop-app-0.1.0.jar
 ```
 
 ### Where the data is
