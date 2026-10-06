@@ -5,6 +5,7 @@ import co.edu.corhuila.barbersaas.barbershop.application.port.in.Caller;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.Created;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.InternalBarbershopUseCases;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.Page;
+import co.edu.corhuila.barbersaas.barbershop.application.port.in.PlatformBarbershopUseCases;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarberRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarbershopRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.IdGenerator;
@@ -35,7 +36,8 @@ public class OnboardBarbershops implements InternalBarbershopUseCases {
 
     @Override
     public Created<Barbershop> create(Caller caller, NewBarbershop data, String idempotencyKey) {
-        caller.requireService(WORKFLOW);
+        // The saga creates the owner's barbershop; platform-admin onboards one by hand (DEC-SHOP-06).
+        caller.requireService(WORKFLOW, PlatformBarbershopUseCases.PLATFORM_ADMIN);
         // No tenant exists yet: the calling service takes its place in the hash.
         String hash = RequestHash.of(caller.subject(), data.name(), data.address(), data.city(), data.latitude(),
                 data.longitude(), data.phone());
