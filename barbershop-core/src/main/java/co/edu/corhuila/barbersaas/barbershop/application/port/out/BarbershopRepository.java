@@ -2,7 +2,9 @@ package co.edu.corhuila.barbersaas.barbershop.application.port.out;
 
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.BarbershopUseCases.Search;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.Page;
+import co.edu.corhuila.barbersaas.barbershop.application.port.in.PlatformBarbershopUseCases.Filter;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.Barbershop;
+import co.edu.corhuila.barbersaas.barbershop.domain.model.BarbershopStatus;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,6 +15,15 @@ public interface BarbershopRepository {
     Page<Barbershop> searchVisible(Search search, Page.Request page);
 
     Optional<Barbershop> findById(UUID id);
+
+    /** Every barbershop in any status, most recent first, for platform-admin (DEC-SHOP-06). */
+    Page<Barbershop> searchAll(Filter filter, Page.Request page);
+
+    /**
+     * Writes status, plan and updatedAt only while the stored status is still {@code expectedStatus}.
+     * False when another change came first: nothing is written.
+     */
+    boolean updateLifecycle(Barbershop barbershop, BarbershopStatus expectedStatus);
 
     void update(Barbershop barbershop);
 
