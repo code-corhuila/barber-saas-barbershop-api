@@ -1,6 +1,7 @@
 package co.edu.corhuila.barbersaas.barbershop.domain.model;
 
 import co.edu.corhuila.barbersaas.barbershop.domain.model.DomainException.BusinessRuleViolation;
+import co.edu.corhuila.barbersaas.barbershop.domain.model.DomainException.InvalidStatusTransition;
 import java.math.BigDecimal;
 import java.time.DateTimeException;
 import java.time.Duration;
@@ -82,6 +83,32 @@ public final class Barbershop {
         if (hasBarbers) {
             throw new BusinessRuleViolation("A barbershop with barbers cannot be removed");
         }
+    }
+
+    /** INV-SHOP-002: only the transitions of the lifecycle; the status it already has changes nothing. */
+    public Barbershop changeStatus(BarbershopStatus target, Instant now) {
+        Objects.requireNonNull(target);
+        if (target == status) {
+            return this;
+        }
+        if (!status.canBecome(target)) {
+            throw new InvalidStatusTransition("The barbershop cannot move from " + status + " to " + target);
+        }
+        return new Barbershop(id, name, address, city, latitude, longitude, phone, whatsappNumber, logoUrl, target,
+                planId, timezone, cancellationPolicyHours, trialEndsAt, createdAt, now);
+    }
+
+    /** INV-SHOP-003: platform-admin already checked the plan is active; a cancelled barbershop takes none. */
+    public Barbershop assignPlan(UUID plan, Instant now) {
+        Objects.requireNonNull(plan);
+        if (status == BarbershopStatus.CANCELLED) {
+            throw new InvalidStatusTransition("A cancelled barbershop cannot change its plan");
+        }
+        if (plan.equals(planId)) {
+            return this;
+        }
+        return new Barbershop(id, name, address, city, latitude, longitude, phone, whatsappNumber, logoUrl, status,
+                plan, timezone, cancellationPolicyHours, trialEndsAt, createdAt, now);
     }
 
     /** Applies the fields that were sent; status, plan and the trial end never change here. */
