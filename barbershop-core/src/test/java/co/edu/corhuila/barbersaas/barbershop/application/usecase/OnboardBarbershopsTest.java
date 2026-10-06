@@ -66,6 +66,17 @@ class OnboardBarbershopsTest {
     }
 
     @Test
+    void platform_admin_also_creates_a_barbershop_on_trial_but_never_removes_one() {
+        Caller platform = new Caller("barber-saas-platform-admin-api", Role.SERVICE, null);
+
+        Created<Barbershop> result = useCases.create(platform, DATA, "platform-0001");
+
+        assertTrue(result.created());
+        assertEquals(BarbershopStatus.TRIAL, result.value().status());
+        assertThrows(Forbidden.class, () -> useCases.remove(platform, result.value().id()));
+    }
+
+    @Test
     void only_the_workflow_service_token_may_call_the_internal_operations() {
         UUID shop = UUID.randomUUID();
         Caller owner = new Caller(UUID.randomUUID().toString(), Role.ADMIN_BARBERSHOP, shop);
