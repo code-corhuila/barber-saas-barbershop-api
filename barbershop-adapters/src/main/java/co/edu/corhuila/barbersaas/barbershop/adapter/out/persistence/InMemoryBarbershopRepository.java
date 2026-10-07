@@ -2,6 +2,7 @@ package co.edu.corhuila.barbersaas.barbershop.adapter.out.persistence;
 
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.BarbershopUseCases.Search;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.Page;
+import co.edu.corhuila.barbersaas.barbershop.application.port.in.PlatformBarbershopUseCases.Filter;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarberRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarbershopRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Idempotency;
@@ -51,6 +52,26 @@ public class InMemoryBarbershopRepository implements BarbershopRepository {
     @Override
     public void update(Barbershop barbershop) {
         rows.put(barbershop.id(), barbershop);
+    }
+
+    @Override
+    public Page<Barbershop> searchAll(Filter f, Page.Request page) {
+        return Page.of(rows.values().stream()
+                .filter(b -> f.status() == null || b.status() == f.status())
+                .filter(b -> f.planId() == null || f.planId().equals(b.planId()))
+                .filter(b -> f.trialEndsBefore() == null || b.trialEndsAt().isBefore(f.trialEndsBefore()))
+                .sorted(Comparator.comparing(Barbershop::createdAt).reversed().thenComparing(Barbershop::id))
+                .toList(), page);
+    }
+
+    @Override
+    public synchronized boolean updateLifecycle(Barbershop barbershop, BarbershopStatus expectedStatus) {
+        Barbershop current = rows.get(barbershop.id());
+        if (current == null || current.status() != expectedStatus) {
+            return false;
+        }
+        rows.put(barbershop.id(), barbershop);
+        return true;
     }
 
     @Override
