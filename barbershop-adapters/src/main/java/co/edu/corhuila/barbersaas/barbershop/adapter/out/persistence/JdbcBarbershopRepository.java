@@ -2,6 +2,7 @@ package co.edu.corhuila.barbersaas.barbershop.adapter.out.persistence;
 
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.BarbershopUseCases.Search;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.Page;
+import co.edu.corhuila.barbersaas.barbershop.application.port.in.PlatformBarbershopUseCases.Filter;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarbershopRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Idempotency;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.Barbershop;
@@ -52,6 +53,34 @@ public class JdbcBarbershopRepository implements BarbershopRepository {
     public Optional<Barbershop> findById(UUID id) {
         return jdbc.query("SELECT " + COLUMNS + " FROM barbershop.barbershop WHERE id = ?", (rs, n) -> map(rs), id)
                 .stream().findFirst();
+    }
+
+    @Override
+    public Page<Barbershop> searchAll(Filter f, Page.Request page) {
+        StringBuilder from = new StringBuilder("FROM barbershop.barbershop WHERE true");
+        List<Object> args = new ArrayList<>();
+        if (f.status() != null) {
+            from.append(" AND status = ?");
+            args.add(f.status().name());
+        }
+        if (f.planId() != null) {
+            from.append(" AND plan_id = ?");
+            args.add(f.planId());
+        }
+        if (f.trialEndsBefore() != null) {
+            from.append(" AND trial_ends_at < ?");
+            args.add(Timestamp.from(f.trialEndsBefore()));
+        }
+        return JdbcPages.page(jdbc, COLUMNS, new JdbcPages.Query(from.toString(), args, "ORDER BY created_at DESC, id"),
+                (rs, n) -> map(rs), page);
+    }
+
+    /** The only write of status and plan (DEC-SHOP-06), conditional on the status that was read. */
+    @Override
+    public boolean updateLifecycle(Barbershop b, BarbershopStatus expectedStatus) {
+        return jdbc.update("UPDATE barbershop.barbershop SET status = ?, plan_id = ?, updated_at = ? "
+                        + "WHERE id = ? AND status = ?",
+                b.status().name(), b.planId(), Timestamp.from(b.updatedAt()), b.id(), expectedStatus.name()) == 1;
     }
 
     /** Status, plan and the trial end are never written here (DEC-SHOP-03, INV-SHOP-001). */
