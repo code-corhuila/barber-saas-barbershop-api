@@ -42,7 +42,9 @@ It never migrates its schema: that is `barber-saas-barbershop-db`.
 | `GET` / `POST /api/v1/services`, `GET` / `PUT /api/v1/services/{id}` | `ADMIN_BARBERSHOP` manages; `BARBER` and `CLIENT` see active ones |
 | `GET` / `POST /api/v1/barbers`, `GET` / `PATCH /api/v1/barbers/{id}` | `ADMIN_BARBERSHOP` manages; a `BARBER` edits only their own profile |
 | `GET` / `POST /api/v1/barbers/{id}/specialties`, `DELETE …/{specialtyId}` | `ADMIN_BARBERSHOP` or the barber themselves |
-| `POST /internal/v1/barbershops`, `DELETE /internal/v1/barbershops/{id}` | only the service token of `barber-saas-workflow` (owner onboarding, `DEC-SHOP-05`) |
+| `POST /internal/v1/barbershops` | the service token of `barber-saas-workflow` (owner onboarding, `DEC-SHOP-05`) or of `barber-saas-platform-admin-api` (`DEC-SHOP-06`) |
+| `DELETE /internal/v1/barbershops/{id}` | only the service token of `barber-saas-workflow` (the compensation of the onboarding) |
+| `GET /internal/v1/barbershops` (`status`, `planId`, `trialEndsBefore`), `GET …/{id}`, `PATCH …/{id}/status`, `PUT …/{id}/plan` | only the service token of `barber-saas-platform-admin-api` (`DEC-SHOP-06`) |
 | `GET /health` | liveness, no token |
 
 The tenant comes **only** from the token's `barbershopId` claim; another barbershop's resource
@@ -62,6 +64,15 @@ They answer only on the internal network: the api-gateway routes `/api/v1`, neve
 user's token answers `403`, and so does the token of another service. To call one by hand in
 `develop`, use `WORKFLOW_SERVICE_TOKEN` of `barber-saas-infra-postgres/env/dev.env` (or
 `./scripts/dev-token.sh barber-saas-workflow SERVICE 60`).
+
+platform-admin never touches this schema (OQ-10, `DEC-SHOP-06`): it lists every barbershop in any
+status (most recent first, paged; `status=TRIAL&trialEndsBefore=` finds the expired trials), reads
+one, changes its status and assigns its plan through `/internal/v1`. The status follows the lifecycle
+of `entities-and-rules.md` (`TRIAL` → `ACTIVE`/`SUSPENDED`, `ACTIVE` ⇄ `SUSPENDED`, both → `CANCELLED`,
+which is final): any other change answers `409 INVALID_STATUS_TRANSITION`, and the status it already
+has answers `200` unchanged. A `CANCELLED` barbershop takes no plan (`409`); that the plan exists and
+is active is checked by platform-admin, whose data it is. The write is conditional on the status that
+was read, so two changes at once never overwrite each other: the second answers `409`.
 
 ### How to start it
 
@@ -92,8 +103,6 @@ TEST_DATABASE_PASSWORD=... mvn -B verify
 
 ### What is missing
 
-- **Platform-admin changes.** Suspending a barbershop or assigning it a plan (OQ-10) has no
-  operation here yet.
 - **Clients and `/barbershops/me`.** A `CLIENT` token carries no barbershop (OQ-07), so a client
   uses the public catalog; the tenant-scoped reads answer `403` for them until OQ-07 is closed.
 - **Other service tokens.** Only the `/internal` operations accept `role: SERVICE`; the contract does
