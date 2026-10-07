@@ -6,6 +6,7 @@ import co.edu.corhuila.barbersaas.barbershop.application.port.in.ApplicationExce
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.ApplicationException.NotFound;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Users;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.DomainException.BusinessRuleViolation;
+import co.edu.corhuila.barbersaas.barbershop.domain.model.DomainException.InvalidStatusTransition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -49,6 +50,12 @@ public class ErrorHandler {
     @ExceptionHandler(NotFound.class)
     ResponseEntity<ApiError> notFound(NotFound e) {
         return respond(HttpStatus.NOT_FOUND, ApiError.of(ApiError.NOT_FOUND, e.getMessage()));
+    }
+
+    /** barbershop-service.yaml 1.4.0: a lifecycle change the state machine forbids answers 409 (DEC-SHOP-06). */
+    @ExceptionHandler(InvalidStatusTransition.class)
+    ResponseEntity<ApiError> invalidTransition(InvalidStatusTransition e) {
+        return respond(HttpStatus.CONFLICT, ApiError.of(ApiError.INVALID_STATUS_TRANSITION, e.getMessage()));
     }
 
     @ExceptionHandler({BusinessRuleViolation.class, IdempotencyKeyReused.class})
