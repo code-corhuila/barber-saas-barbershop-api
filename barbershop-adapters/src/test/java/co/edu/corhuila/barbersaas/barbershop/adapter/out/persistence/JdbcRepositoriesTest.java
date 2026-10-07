@@ -7,16 +7,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.BarbershopUseCases.Search;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.Page;
+import co.edu.corhuila.barbersaas.barbershop.application.port.in.PlatformBarbershopUseCases.Filter;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarberRepository.UserAlreadyHasProfile;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Idempotency;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.BarberProfile;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.BarberSpecialty;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.Barbershop;
+import co.edu.corhuila.barbersaas.barbershop.domain.model.BarbershopStatus;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.Service;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -69,6 +72,37 @@ class JdbcRepositoriesTest {
         assertEquals(2, page.total());
         assertEquals(near.id(), page.items().get(0).id());
         assertEquals(far.id(), page.items().get(1).id());
+    }
+
+    @Test
+    void the_platform_list_sees_every_status_and_filters_by_plan_status_and_trial_end() {
+        UUID plan = UUID.randomUUID();
+        Barbershop older = Barbershop.register(UUID.randomUUID(), "Older", "Neiva", NOW.minus(70, ChronoUnit.DAYS));
+        Barbershop newer = Barbershop.register(UUID.randomUUID(), "Newer", "Neiva", NOW);
+        barbershops.saveNew(older, key());
+        barbershops.saveNew(newer, key());
+        assertTrue(barbershops.updateLifecycle(older.assignPlan(plan, NOW), BarbershopStatus.TRIAL));
+        assertTrue(barbershops.updateLifecycle(newer.assignPlan(plan, NOW).changeStatus(BarbershopStatus.SUSPENDED, NOW),
+                BarbershopStatus.TRIAL));
+
+        Page<Barbershop> onPlan = barbershops.searchAll(new Filter(null, plan, null), FIRST);
+        Page<Barbershop> expired = barbershops.searchAll(new Filter(BarbershopStatus.TRIAL, plan, NOW), FIRST);
+
+        assertEquals(List.of(newer.id(), older.id()), onPlan.items().stream().map(Barbershop::id).toList());
+        assertEquals(BarbershopStatus.SUSPENDED, onPlan.items().get(0).status());
+        assertEquals(plan, onPlan.items().get(0).planId());
+        assertEquals(List.of(older.id()), expired.items().stream().map(Barbershop::id).toList());
+    }
+
+    @Test
+    void the_lifecycle_write_only_applies_while_the_status_is_the_one_read() {
+        Barbershop shop = Barbershop.register(UUID.randomUUID(), "Shop", "Neiva", NOW);
+        barbershops.saveNew(shop, key());
+
+        assertFalse(barbershops.updateLifecycle(shop.changeStatus(BarbershopStatus.ACTIVE, NOW), BarbershopStatus.ACTIVE));
+        assertEquals(BarbershopStatus.TRIAL, barbershops.findById(shop.id()).orElseThrow().status());
+        assertTrue(barbershops.updateLifecycle(shop.changeStatus(BarbershopStatus.ACTIVE, NOW), BarbershopStatus.TRIAL));
+        assertEquals(BarbershopStatus.ACTIVE, barbershops.findById(shop.id()).orElseThrow().status());
     }
 
     @Test
