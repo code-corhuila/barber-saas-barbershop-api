@@ -57,6 +57,13 @@ this service's `SERVICE_TOKEN`, answers `404` if the user is unknown or of anoth
 it is not an active `BARBER`, and `503` if identity-auth does not answer — no profile is created
 unchecked. No read calls identity-auth; profiles created before have `null` until saved again.
 
+**Barber limit of the plan (`DEC-SHOP-07`).** Every barbershop read returns `activeBarbers`, its barber
+profiles counted in the same query, never stored. Before checking the user, `POST /api/v1/barbers`
+reads the barbershop's plan from platform-admin's `GET /internal/v1/plans/{id}` (`PLATFORM_ADMIN_API_URL`,
+the same `SERVICE_TOKEN`): with `activeBarbers` already at `maxBarbers` it answers `422` "Tu plan permite
+N barberos" (`999` never limits), and if platform-admin does not answer, `503` and nothing is created. A
+barbershop without a plan, or with one platform-admin does not know, is not limited and a warning is logged.
+
 The `/internal/v1` operations are the barbershop steps of the owner-onboarding saga: create the
 barbershop in `TRIAL` (`trialEndsAt` = `createdAt` + 60 days) and, as its compensation, delete it
 while it is still `TRIAL` and has no barber (`204` also when it is already gone; otherwise `422`).
