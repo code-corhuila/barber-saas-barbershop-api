@@ -17,6 +17,8 @@ public final class Barbershop {
     public static final Duration TRIAL = Duration.ofDays(60);
     public static final String DEFAULT_TIMEZONE = "America/Bogota";
     public static final int DEFAULT_CANCELLATION_POLICY_HOURS = 2;
+    /** maxBarbers of a plan that has no limit (the seed of 06-data, DEC-SHOP-07). */
+    public static final int UNLIMITED_BARBERS = 999;
 
     private static final BigDecimal MAX_LATITUDE = BigDecimal.valueOf(90);
     private static final BigDecimal MAX_LONGITUDE = BigDecimal.valueOf(180);
@@ -37,11 +39,21 @@ public final class Barbershop {
     private final Instant trialEndsAt;
     private final Instant createdAt;
     private final Instant updatedAt;
+    private final int activeBarbers;
 
     public Barbershop(UUID id, String name, String address, String city, BigDecimal latitude, BigDecimal longitude,
                       String phone, String whatsappNumber, String logoUrl, BarbershopStatus status, UUID planId,
                       String timezone, int cancellationPolicyHours, Instant trialEndsAt, Instant createdAt,
                       Instant updatedAt) {
+        this(id, name, address, city, latitude, longitude, phone, whatsappNumber, logoUrl, status, planId, timezone,
+                cancellationPolicyHours, trialEndsAt, createdAt, updatedAt, 0);
+    }
+
+    /** {@code activeBarbers}: its barber profiles, counted when it is read, never stored (DEC-SHOP-07). */
+    public Barbershop(UUID id, String name, String address, String city, BigDecimal latitude, BigDecimal longitude,
+                      String phone, String whatsappNumber, String logoUrl, BarbershopStatus status, UUID planId,
+                      String timezone, int cancellationPolicyHours, Instant trialEndsAt, Instant createdAt,
+                      Instant updatedAt, int activeBarbers) {
         this.id = Objects.requireNonNull(id);
         this.name = Rules.requiredText(name, 120, "name");
         this.address = Rules.optionalText(address, 255, "address");
@@ -58,6 +70,7 @@ public final class Barbershop {
         this.trialEndsAt = Objects.requireNonNull(trialEndsAt);
         this.createdAt = Objects.requireNonNull(createdAt);
         this.updatedAt = Objects.requireNonNull(updatedAt);
+        this.activeBarbers = Rules.atLeast(activeBarbers, 0, "number of active barbers");
     }
 
     /** INV-SHOP-001: a new barbershop is on TRIAL and its trial ends 60 days later, fixed once. */
@@ -95,7 +108,7 @@ public final class Barbershop {
             throw new InvalidStatusTransition("The barbershop cannot move from " + status + " to " + target);
         }
         return new Barbershop(id, name, address, city, latitude, longitude, phone, whatsappNumber, logoUrl, target,
-                planId, timezone, cancellationPolicyHours, trialEndsAt, createdAt, now);
+                planId, timezone, cancellationPolicyHours, trialEndsAt, createdAt, now, activeBarbers);
     }
 
     /** INV-SHOP-003: platform-admin already checked the plan is active; a cancelled barbershop takes none. */
@@ -108,7 +121,7 @@ public final class Barbershop {
             return this;
         }
         return new Barbershop(id, name, address, city, latitude, longitude, phone, whatsappNumber, logoUrl, status,
-                plan, timezone, cancellationPolicyHours, trialEndsAt, createdAt, now);
+                plan, timezone, cancellationPolicyHours, trialEndsAt, createdAt, now, activeBarbers);
     }
 
     /** Applies the fields that were sent; status, plan and the trial end never change here. */
@@ -118,7 +131,22 @@ public final class Barbershop {
                 pick(c.whatsappNumber(), whatsappNumber), pick(c.logoUrl(), logoUrl), status, planId,
                 pick(c.timezone(), timezone),
                 c.cancellationPolicyHours() == null ? cancellationPolicyHours : c.cancellationPolicyHours(),
-                trialEndsAt, createdAt, now);
+                trialEndsAt, createdAt, now, activeBarbers);
+    }
+
+    /** The same barbershop with the number of barber profiles it has now. */
+    public Barbershop withActiveBarbers(int count) {
+        return new Barbershop(id, name, address, city, latitude, longitude, phone, whatsappNumber, logoUrl, status,
+                planId, timezone, cancellationPolicyHours, trialEndsAt, createdAt, updatedAt, count);
+    }
+
+    /** DEC-SHOP-07: another barber only while there are fewer than its plan allows; 999 never limits. */
+    public void requireRoomForAnotherBarber(int maxBarbers) {
+        if (maxBarbers < UNLIMITED_BARBERS && activeBarbers >= maxBarbers) {
+            // Spanish: the team screen shows it to the owner as it comes (barbershop-service.yaml 1.5.0).
+            throw new BusinessRuleViolation(
+                    "Tu plan permite " + maxBarbers + (maxBarbers == 1 ? " barbero" : " barberos"));
+        }
     }
 
     private static <T> T pick(T sent, T current) {
@@ -163,4 +191,5 @@ public final class Barbershop {
     public Instant trialEndsAt() { return trialEndsAt; }
     public Instant createdAt() { return createdAt; }
     public Instant updatedAt() { return updatedAt; }
+    public int activeBarbers() { return activeBarbers; }
 }
