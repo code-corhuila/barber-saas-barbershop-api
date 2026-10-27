@@ -6,6 +6,7 @@ import co.edu.corhuila.barbersaas.barbershop.application.port.in.PlatformBarbers
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarberRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarbershopRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Idempotency;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.Plans;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.ServiceRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Users;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.BarberProfile;
@@ -150,6 +151,28 @@ final class Fakes {
             calls++;
             if (down) {
                 throw new Unavailable("identity-auth-api is down");
+            }
+            return Optional.ofNullable(rows.get(id));
+        }
+    }
+
+    /** platform-admin's internal plan read: the plans it knows, and whether it answers at all. */
+    static final class PlansCatalog implements Plans {
+        final Map<UUID, Plan> rows = new HashMap<>();
+        boolean down;
+        int calls;
+
+        Plan add(String name, int maxBarbers) {
+            Plan plan = new Plan(UUID.randomUUID(), name, maxBarbers);
+            rows.put(plan.id(), plan);
+            return plan;
+        }
+
+        @Override
+        public Optional<Plan> find(UUID id) {
+            calls++;
+            if (down) {
+                throw new Unavailable("platform-admin-api is down");
             }
             return Optional.ofNullable(rows.get(id));
         }
