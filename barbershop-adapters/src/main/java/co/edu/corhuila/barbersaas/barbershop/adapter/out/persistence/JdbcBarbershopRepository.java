@@ -22,6 +22,9 @@ public class JdbcBarbershopRepository implements BarbershopRepository {
 
     private static final String COLUMNS = "id, name, address, city, latitude, longitude, phone, whatsapp_number, "
             + "logo_url, status, plan_id, timezone, cancellation_policy_hours, trial_ends_at, created_at, updated_at";
+    /** What a read selects: the columns and its barber profiles, counted now (DEC-SHOP-07). */
+    private static final String READ = COLUMNS + ", (SELECT count(*) FROM barbershop.barber_profile p "
+            + "WHERE p.barbershop_id = barbershop.id) AS active_barbers";
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
@@ -46,12 +49,12 @@ public class JdbcBarbershopRepository implements BarbershopRepository {
                     + "power(latitude - ?, 2) + power((longitude - ?) * cos(radians(?::float8)), 2), id",
                     List.of(search.latitude(), search.longitude(), search.latitude()));
         }
-        return JdbcPages.page(jdbc, COLUMNS, query, (rs, n) -> map(rs), page);
+        return JdbcPages.page(jdbc, READ, query, (rs, n) -> map(rs), page);
     }
 
     @Override
     public Optional<Barbershop> findById(UUID id) {
-        return jdbc.query("SELECT " + COLUMNS + " FROM barbershop.barbershop WHERE id = ?", (rs, n) -> map(rs), id)
+        return jdbc.query("SELECT " + READ + " FROM barbershop.barbershop WHERE id = ?", (rs, n) -> map(rs), id)
                 .stream().findFirst();
     }
 
@@ -71,7 +74,7 @@ public class JdbcBarbershopRepository implements BarbershopRepository {
             from.append(" AND trial_ends_at < ?");
             args.add(Timestamp.from(f.trialEndsBefore()));
         }
-        return JdbcPages.page(jdbc, COLUMNS, new JdbcPages.Query(from.toString(), args, "ORDER BY created_at DESC, id"),
+        return JdbcPages.page(jdbc, READ, new JdbcPages.Query(from.toString(), args, "ORDER BY created_at DESC, id"),
                 (rs, n) -> map(rs), page);
     }
 
@@ -124,6 +127,6 @@ public class JdbcBarbershopRepository implements BarbershopRepository {
                 BarbershopStatus.valueOf(rs.getString("status")), rs.getObject("plan_id", UUID.class),
                 rs.getString("timezone"), rs.getInt("cancellation_policy_hours"),
                 rs.getTimestamp("trial_ends_at").toInstant(), rs.getTimestamp("created_at").toInstant(),
-                rs.getTimestamp("updated_at").toInstant());
+                rs.getTimestamp("updated_at").toInstant(), rs.getInt("active_barbers"));
     }
 }
