@@ -9,12 +9,15 @@ import co.edu.corhuila.barbersaas.barbershop.application.port.in.Caller.Role;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.Created;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.Page;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarberRepository;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarbershopRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.IdGenerator;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Idempotency;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.Plans;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Users;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Users.User;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.BarberProfile;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.BarberSpecialty;
+import co.edu.corhuila.barbersaas.barbershop.domain.model.Barbershop;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.DomainException.BusinessRuleViolation;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,20 +25,28 @@ import java.util.function.Function;
 
 /**
  * A new profile reads its user once from identity-auth (DEC-SHOP-04, ADR-014): it checks the user
- * and keeps a copy of the name and photo, so no read of a barber ever calls identity-auth.
+ * and keeps a copy of the name and photo, so no read of a barber ever calls identity-auth. Before that,
+ * the barbershop's plan is read from platform-admin to apply its barber limit (DEC-SHOP-07).
  */
 public class ManageBarbers implements BarberUseCases {
 
     static final String CREATE_OPERATION = "POST /api/v1/barbers";
     static final String ADD_SPECIALTY_OPERATION = "POST /api/v1/barbers/{id}/specialties";
 
+    private static final System.Logger LOG = System.getLogger(ManageBarbers.class.getName());
+
     private final BarberRepository barbers;
+    private final BarbershopRepository barbershops;
     private final Users users;
+    private final Plans plans;
     private final IdGenerator ids;
 
-    public ManageBarbers(BarberRepository barbers, Users users, IdGenerator ids) {
+    public ManageBarbers(BarberRepository barbers, BarbershopRepository barbershops, Users users, Plans plans,
+                         IdGenerator ids) {
         this.barbers = barbers;
+        this.barbershops = barbershops;
         this.users = users;
+        this.plans = plans;
         this.ids = ids;
     }
 
@@ -64,6 +75,7 @@ public class ManageBarbers implements BarberUseCases {
         if (barbers.existsForUser(p.userId())) {
             throw new BusinessRuleViolation("The user already has a barber profile");
         }
+        requireRoomForAnotherBarber(tenant);
         User user = barberOf(tenant, p.userId());
         BarberProfile profile = BarberProfile.create(ids.next(), tenant, p.userId(), user.fullName(),
                 user.profilePhotoUrl(), p.experienceYears(), p.bio());
@@ -122,6 +134,27 @@ public class ManageBarbers implements BarberUseCases {
             throw new BusinessRuleViolation("The user is not an active barber");
         }
         return user;
+    }
+
+    /**
+     * 422 when the barbershop already has the barbers its plan allows; Plans.Unavailable (503) creates
+     * nothing. A barbershop without a plan, or whose plan platform-admin does not know, should not exist:
+     * it is not limited and the case is logged.
+     */
+    private void requireRoomForAnotherBarber(UUID tenant) {
+        Optional<Barbershop> barbershop = barbershops.findById(tenant);
+        UUID planId = barbershop.map(Barbershop::planId).orElse(null);
+        if (planId == null) {
+            LOG.log(System.Logger.Level.WARNING, "barbershop {0} has no plan: its barbers are not limited", tenant);
+            return;
+        }
+        Optional<Plans.Plan> plan = plans.find(planId);
+        if (plan.isEmpty()) {
+            LOG.log(System.Logger.Level.WARNING, "plan {0} of barbershop {1} is unknown to platform-admin: "
+                    + "its barbers are not limited", planId, tenant);
+            return;
+        }
+        barbershop.get().requireRoomForAnotherBarber(plan.get().maxBarbers());
     }
 
     private BarberProfile find(Caller caller, UUID id) {
