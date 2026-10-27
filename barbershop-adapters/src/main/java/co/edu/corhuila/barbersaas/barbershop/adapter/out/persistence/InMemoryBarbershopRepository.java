@@ -21,7 +21,7 @@ public class InMemoryBarbershopRepository implements BarbershopRepository {
     private final Map<String, Idempotency.Stored> keys = new ConcurrentHashMap<>();
     private final BarberRepository barbers;
 
-    /** The barbers are asked only to refuse removing a barbershop that has them, as the SQL does. */
+    /** The barbers are counted on every read and refuse removing a barbershop that has them, as the SQL does. */
     public InMemoryBarbershopRepository(BarberRepository barbers) {
         this.barbers = barbers;
     }
@@ -38,6 +38,7 @@ public class InMemoryBarbershopRepository implements BarbershopRepository {
                 : Comparator.comparingDouble(b -> Distance.squared(b.latitude(), b.longitude(),
                         search.latitude(), search.longitude()));
         return Page.of(rows.values().stream()
+                .map(this::counted)
                 .filter(b -> b.status().visible())
                 .filter(b -> search.city() == null || b.city().equalsIgnoreCase(search.city()))
                 .sorted(order.thenComparing(Barbershop::id))
@@ -46,7 +47,7 @@ public class InMemoryBarbershopRepository implements BarbershopRepository {
 
     @Override
     public Optional<Barbershop> findById(UUID id) {
-        return Optional.ofNullable(rows.get(id));
+        return Optional.ofNullable(rows.get(id)).map(this::counted);
     }
 
     @Override
@@ -57,6 +58,7 @@ public class InMemoryBarbershopRepository implements BarbershopRepository {
     @Override
     public Page<Barbershop> searchAll(Filter f, Page.Request page) {
         return Page.of(rows.values().stream()
+                .map(this::counted)
                 .filter(b -> f.status() == null || b.status() == f.status())
                 .filter(b -> f.planId() == null || f.planId().equals(b.planId()))
                 .filter(b -> f.trialEndsBefore() == null || b.trialEndsAt().isBefore(f.trialEndsBefore()))
@@ -88,10 +90,18 @@ public class InMemoryBarbershopRepository implements BarbershopRepository {
     @Override
     public synchronized boolean deleteIfRemovable(UUID id) {
         Barbershop b = rows.get(id);
-        if (b == null || b.status() != BarbershopStatus.TRIAL || barbers.page(id, null, new Page.Request(1, 1)).total() > 0) {
+        if (b == null || b.status() != BarbershopStatus.TRIAL || barbersOf(id) > 0) {
             return false;
         }
         rows.remove(id);
         return true;
+    }
+
+    private Barbershop counted(Barbershop b) {
+        return b.withActiveBarbers(barbersOf(b.id()));
+    }
+
+    private int barbersOf(UUID barbershopId) {
+        return (int) barbers.page(barbershopId, null, new Page.Request(1, 1)).total();
     }
 }
