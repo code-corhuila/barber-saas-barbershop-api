@@ -74,9 +74,10 @@ class BarberLimitOfThePlanTest {
     @Test
     void premium_never_limits() {
         Caller owner = ownerOf(premium, 998);
+        Caller bigOwner = ownerOf(premium, 2000);
 
         assertTrue(useCases.create(owner, newBarberOf(owner), "key-00000004").created());
-        assertTrue(useCases.create(ownerOf(premium, 2000), newBarberOf(owner), "key-00000005").created());
+        assertTrue(useCases.create(bigOwner, newBarberOf(bigOwner), "key-00000005").created());
     }
 
     @Test
