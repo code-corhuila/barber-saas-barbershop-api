@@ -27,7 +27,8 @@ class ManageBarbersTest {
 
     private final Fakes.Barbers barbers = new Fakes.Barbers();
     private final Fakes.UsersDirectory users = new Fakes.UsersDirectory();
-    private final ManageBarbers useCases = new ManageBarbers(barbers, users, UUID::randomUUID);
+    private final ManageBarbers useCases = new ManageBarbers(barbers, new Fakes.Barbershops(), users,
+            new Fakes.PlansCatalog(), UUID::randomUUID);
 
     private final UUID shop = UUID.randomUUID();
     private final UUID barberUser = users.add(new User(UUID.randomUUID(), "Juan Pérez", "https://cdn.example/juan.jpg",
