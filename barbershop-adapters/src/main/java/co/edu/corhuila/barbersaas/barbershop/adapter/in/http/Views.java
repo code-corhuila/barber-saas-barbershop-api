@@ -29,11 +29,11 @@ final class Views {
     record BarbershopView(UUID id, String name, String address, String city, BigDecimal latitude,
                           BigDecimal longitude, String phone, String whatsappNumber, String logoUrl, String status,
                           UUID planId, String timezone, int cancellationPolicyHours, Instant trialEndsAt,
-                          Instant createdAt, Instant updatedAt) {
+                          int activeBarbers, Instant createdAt, Instant updatedAt) {
         static BarbershopView of(Barbershop b) {
             return new BarbershopView(b.id(), b.name(), b.address(), b.city(), b.latitude(), b.longitude(), b.phone(),
                     b.whatsappNumber(), b.logoUrl(), b.status().name(), b.planId(), b.timezone(),
-                    b.cancellationPolicyHours(), b.trialEndsAt(), b.createdAt(), b.updatedAt());
+                    b.cancellationPolicyHours(), b.trialEndsAt(), b.activeBarbers(), b.createdAt(), b.updatedAt());
         }
     }
 
