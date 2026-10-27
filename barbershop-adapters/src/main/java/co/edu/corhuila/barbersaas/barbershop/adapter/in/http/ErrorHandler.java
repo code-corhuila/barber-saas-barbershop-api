@@ -4,6 +4,7 @@ import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.ApiError.Validation
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.ApplicationException.Forbidden;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.ApplicationException.IdempotencyKeyReused;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.ApplicationException.NotFound;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.Plans;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Users;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.DomainException.BusinessRuleViolation;
 import co.edu.corhuila.barbersaas.barbershop.domain.model.DomainException.InvalidStatusTransition;
@@ -69,6 +70,14 @@ public class ErrorHandler {
         log.error("dependency failed: {}", e.getMessage());
         return respond(HttpStatus.SERVICE_UNAVAILABLE,
                 ApiError.of(ApiError.SERVICE_UNAVAILABLE, "the barber's account could not be checked, try again"));
+    }
+
+    /** platform-admin did not answer: the barber limit is unknown, so no profile is created (DEC-SHOP-07). */
+    @ExceptionHandler(Plans.Unavailable.class)
+    ResponseEntity<ApiError> planUnavailable(Plans.Unavailable e) {
+        log.error("dependency failed: {}", e.getMessage());
+        return respond(HttpStatus.SERVICE_UNAVAILABLE,
+                ApiError.of(ApiError.SERVICE_UNAVAILABLE, "the barbershop's plan could not be checked, try again"));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
