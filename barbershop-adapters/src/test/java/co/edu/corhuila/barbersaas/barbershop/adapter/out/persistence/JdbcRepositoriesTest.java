@@ -142,6 +142,25 @@ class JdbcRepositoriesTest {
     }
 
     @Test
+    void every_read_of_a_barbershop_counts_its_barber_profiles() {
+        String city = "City-" + UUID.randomUUID();
+        Barbershop shop = insertBarbershop(city, null, null);
+        Barbershop empty = insertBarbershop(city, null, null);
+        for (int i = 0; i < 2; i++) {
+            barbers.saveNew(BarberProfile.create(UUID.randomUUID(), shop.id(), UUID.randomUUID(), null, null, 1, null),
+                    key());
+        }
+
+        assertEquals(2, barbershops.findById(shop.id()).orElseThrow().activeBarbers());
+        assertEquals(0, barbershops.findById(empty.id()).orElseThrow().activeBarbers());
+        assertEquals(List.of(2, 0), barbershops.searchVisible(new Search(city, null, null), FIRST).items().stream()
+                .sorted((a, b) -> Integer.compare(b.activeBarbers(), a.activeBarbers()))
+                .map(Barbershop::activeBarbers).toList());
+        assertEquals(2, barbershops.searchAll(new Filter(null, null, null), FIRST).items().stream()
+                .filter(b -> b.id().equals(shop.id())).findFirst().orElseThrow().activeBarbers());
+    }
+
+    @Test
     void profiles_come_with_their_specialties_and_one_per_user() {
         Barbershop shop = insertBarbershop("Neiva", null, null);
         BarberProfile p = BarberProfile.create(UUID.randomUUID(), shop.id(), UUID.randomUUID(), "Juan Perez",
