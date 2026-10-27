@@ -3,6 +3,7 @@ package co.edu.corhuila.barbersaas.barbershop.app;
 import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.AuthFilter;
 import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.CorrelationFilter;
 import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.Rs256Verifier;
+import co.edu.corhuila.barbersaas.barbershop.adapter.out.http.HttpPlans;
 import co.edu.corhuila.barbersaas.barbershop.adapter.out.http.HttpUsers;
 import co.edu.corhuila.barbersaas.barbershop.adapter.out.persistence.InMemoryBarberRepository;
 import co.edu.corhuila.barbersaas.barbershop.adapter.out.persistence.InMemoryBarbershopRepository;
@@ -19,6 +20,7 @@ import co.edu.corhuila.barbersaas.barbershop.application.port.in.ServiceUseCases
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarberRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.BarbershopRepository;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.ServiceRepository;
+import co.edu.corhuila.barbersaas.barbershop.application.port.out.Plans;
 import co.edu.corhuila.barbersaas.barbershop.application.port.out.Users;
 import co.edu.corhuila.barbersaas.barbershop.application.usecase.ManageBarbers;
 import co.edu.corhuila.barbersaas.barbershop.application.usecase.ManageBarbershops;
@@ -123,9 +125,17 @@ public class BarbershopConfiguration {
         return new HttpUsers(url, serviceToken);
     }
 
+    /** platform-admin's internal plan read, with the same token; unset, a barbershop with a plan gets no barber. */
     @Bean
-    BarberUseCases barberUseCases(BarberRepository barbers, Users users) {
-        return new ManageBarbers(barbers, users, new UuidGenerator());
+    Plans plans(@Value("${barbershop.platform-admin-api-url:}") String url,
+                @Value("${barbershop.service-token:}") String serviceToken) {
+        return new HttpPlans(url, serviceToken);
+    }
+
+    @Bean
+    BarberUseCases barberUseCases(BarberRepository barbers, BarbershopRepository barbershops, Users users,
+                                  Plans plans) {
+        return new ManageBarbers(barbers, barbershops, users, plans, new UuidGenerator());
     }
 
     /** JWT_PUBLIC_KEY: the PEM itself; a one-line value with literal \n escapes, as an env file holds it, is accepted. */
