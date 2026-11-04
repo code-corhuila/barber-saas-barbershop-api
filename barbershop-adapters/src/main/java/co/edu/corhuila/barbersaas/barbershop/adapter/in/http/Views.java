@@ -59,4 +59,13 @@ final class Views {
                     p.ratingAvg(), p.ratingCount(), p.specialties().stream().map(SpecialtyView::of).toList());
         }
     }
+
+    /** docs#165: the public catalog never exposes the account id of a barber; only BarberView carries userId. */
+    record PublicBarberView(UUID id, String fullName, String profilePhotoUrl, int experienceYears, String bio,
+                            BigDecimal ratingAvg, int ratingCount, List<SpecialtyView> specialties) {
+        static PublicBarberView of(BarberProfile p) {
+            return new PublicBarberView(p.id(), p.fullName(), p.profilePhotoUrl(), p.experienceYears(), p.bio(),
+                    p.ratingAvg(), p.ratingCount(), p.specialties().stream().map(SpecialtyView::of).toList());
+        }
+    }
 }

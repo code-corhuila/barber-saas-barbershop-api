@@ -2,9 +2,9 @@ package co.edu.corhuila.barbersaas.barbershop.adapter.in.http;
 
 import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.ApiError.FieldError;
 import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.ApiError.ValidationException;
-import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.Views.BarberView;
 import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.Views.BarbershopView;
 import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.Views.PageView;
+import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.Views.PublicBarberView;
 import co.edu.corhuila.barbersaas.barbershop.adapter.in.http.Views.ServiceView;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.BarbershopUseCases;
 import co.edu.corhuila.barbersaas.barbershop.application.port.in.BarbershopUseCases.Search;
@@ -102,8 +102,8 @@ public class BarbershopController {
     }
 
     @GetMapping("/{id}/barbers")
-    public PageView<BarberView> barbers(@PathVariable UUID id, @RequestParam(required = false) Integer page,
+    public PageView<PublicBarberView> barbers(@PathVariable UUID id, @RequestParam(required = false) Integer page,
                                         @RequestParam(required = false) Integer limit) {
-        return PageView.of(barbershops.listVisibleBarbers(id, Requests.page(page, limit)), BarberView::of);
+        return PageView.of(barbershops.listVisibleBarbers(id, Requests.page(page, limit)), PublicBarberView::of);
     }
 }
