@@ -5,6 +5,38 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-11-05
+
+User stories: code-corhuila/barber-saas-docs#126, code-corhuila/barber-saas-docs#165
+
+### Added
+
+- **domain:** count the active barbers and refuse one over the plan's limit
+- **http:** read a plan from platform-admin with the service token
+- **application:** refuse a barber profile over the plan's limit read from platform-admin
+- **persistence:** count the barber profiles on every barbershop read
+- **http:** expose activeBarbers on the barbershop reads
+
+### Fixed
+
+- **barbers:** answer the public catalog without the account id
+
+### Changed
+
+- **http:** share the internal call with the service token and its limits
+
+### Documentation
+
+- **readme:** explain activeBarbers and the plan's barber limit
+
+### Tests
+
+- **domain:** specify the barber limit of the plan and the active barbers count
+- **application:** specify the plan's barber limit when a profile is created
+- **http:** specify active barbers on every read and the plan's limit over http
+- **persistence:** specify the barber profiles counted on every barbershop read
+- **barbers:** expect the public catalog without the account id
+
 ## [2.0.0] - 2026-10-08
 
 User stories: code-corhuila/barber-saas-docs#4, code-corhuila/barber-saas-docs#7, code-corhuila/barber-saas-docs#12, code-corhuila/barber-saas-docs#59, code-corhuila/barber-saas-docs#76
@@ -108,4 +140,5 @@ User stories: code-corhuila/barber-saas-docs#4, code-corhuila/barber-saas-docs#7
 - **env:** list every variable without real values
 - use the new repository name barber-saas-infra-postgres
 
+[3.0.0]: https://github.com/code-corhuila/barber-saas-barbershop-api/releases/tag/v3.0.0
 [2.0.0]: https://github.com/code-corhuila/barber-saas-barbershop-api/releases/tag/v2.0.0
