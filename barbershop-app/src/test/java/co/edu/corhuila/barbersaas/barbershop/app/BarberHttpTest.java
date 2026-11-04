@@ -91,6 +91,29 @@ class BarberHttpTest extends HttpTest {
     }
 
     @Test
+    void the_public_catalog_never_exposes_the_account_id() throws Exception {
+        String created = http.perform(post("/internal/v1/barbershops")
+                        .header("Authorization", serviceBearer("barber-saas-workflow"))
+                        .header("Idempotency-Key", "signup-" + UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"La Navaja\",\"city\":\"Neiva\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        UUID openShop = UUID.fromString(JsonPath.read(created, "$.id"));
+        UUID user = identityBarber("Ana", openShop);
+        String openOwner = bearer("ADMIN_BARBERSHOP", openShop);
+        http.perform(post("/api/v1/barbers").header("Authorization", openOwner)
+                        .header("Idempotency-Key", "key-" + UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"userId\":\"" + user + "\"}"))
+                .andExpect(status().isCreated());
+
+        http.perform(get("/api/v1/barbershops/" + openShop + "/barbers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].fullName").value("Ana"))
+                .andExpect(jsonPath("$.data[0].userId").doesNotExist());
+        http.perform(get("/api/v1/barbers").header("Authorization", openOwner))
+                .andExpect(jsonPath("$.data[0].userId").value(user.toString()));
+    }
+
+    @Test
     void a_barber_edits_their_own_profile_but_never_the_rating() throws Exception {
         String id = createProfile();
 
