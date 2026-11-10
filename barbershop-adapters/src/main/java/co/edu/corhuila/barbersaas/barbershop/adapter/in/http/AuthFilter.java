@@ -1,5 +1,6 @@
 package co.edu.corhuila.barbersaas.barbershop.adapter.in.http;
 
+import co.edu.corhuila.barbersaas.barbershop.application.port.in.Caller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -13,7 +14,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Validates the bearer token on every route under /api/ except the anonymous discovery catalog, and on
- * every route under /internal/ (authentication.md, "Internal operations": never anonymous).
+ * every route under /internal/ (authentication.md, "Internal operations": never anonymous). The routes
+ * under /api/ take only user tokens; service tokens belong to /internal/.
  */
 public class AuthFilter extends OncePerRequestFilter {
 
@@ -51,12 +53,20 @@ public class AuthFilter extends OncePerRequestFilter {
             reject(response, "a bearer token is required");
             return;
         }
+        Caller caller;
         try {
-            request.setAttribute(CALLER_ATTRIBUTE, verifier.verify(header.substring(7), Instant.now()));
+            caller = verifier.verify(header.substring(7), Instant.now());
         } catch (Rs256Verifier.InvalidTokenException e) {
             reject(response, "the token is invalid or has expired");
             return;
         }
+        // barber-saas-docs#164: service tokens are only for /internal/v1/**; the routes of the app take
+        // user tokens, so a copied service token cannot act as an owner.
+        if (caller.is(Caller.Role.SERVICE) && request.getRequestURI().startsWith("/api/")) {
+            reject(response, "service tokens are only accepted on internal routes");
+            return;
+        }
+        request.setAttribute(CALLER_ATTRIBUTE, caller);
         chain.doFilter(request, response);
     }
 
