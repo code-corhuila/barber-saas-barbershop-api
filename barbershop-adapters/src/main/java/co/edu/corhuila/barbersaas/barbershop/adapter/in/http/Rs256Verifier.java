@@ -28,6 +28,8 @@ public class Rs256Verifier {
     }
 
     public static final String ISSUER = "barber-saas-identity-auth-api";
+    /** The audience of every user token (identity-auth-api #39); service tokens are not checked by it. */
+    public static final String APP_AUDIENCE = "barber-saas-app";
     private static final long LEEWAY_SECONDS = 30;
 
     private final PublicKey key;
@@ -45,8 +47,33 @@ public class Rs256Verifier {
         }
     }
 
-    /** Returns who calls: subject, role and tenant, exactly as the token states them. */
+    /** Returns who calls: subject, role and tenant, exactly as the token states them. Used on /internal/. */
     public Caller verify(String token, Instant now) throws InvalidTokenException {
+        return verify(token, now, false);
+    }
+
+    /**
+     * The same, for the routes of the app (authentication.md, validation step 4, docs#164): the token
+     * must also name {@link #APP_AUDIENCE} in {@code aud}, as every user token of identity-auth does.
+     */
+    public Caller verifyForApp(String token, Instant now) throws InvalidTokenException {
+        return verify(token, now, true);
+    }
+
+    /** {@code aud} is a string or an array of strings (RFC 7519, 4.1.3). */
+    private static boolean names(JsonNode aud, String audience) {
+        if (aud.isArray()) {
+            for (JsonNode one : aud) {
+                if (one.isTextual() && audience.equals(one.asText())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return aud.isTextual() && audience.equals(aud.asText());
+    }
+
+    private Caller verify(String token, Instant now, boolean forApp) throws InvalidTokenException {
         String[] parts = token.split("\\.");
         if (parts.length != 3) {
             throw new InvalidTokenException("malformed token");
@@ -73,6 +100,9 @@ public class Rs256Verifier {
             }
             if (!ISSUER.equals(claims.path("iss").asText())) {
                 throw new InvalidTokenException("unknown issuer");
+            }
+            if (forApp && !names(claims.path("aud"), APP_AUDIENCE)) {
+                throw new InvalidTokenException("not issued for the app");
             }
             Caller.Role role = Caller.Role.valueOf(claims.path("role").asText());
             UUID tenant = claims.path("barbershopId").isTextual()
