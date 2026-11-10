@@ -129,17 +129,26 @@ abstract class HttpTest {
 
     /** "Bearer ..." for a user with that role; {@code barbershopId} null for CLIENT and SUPER_ADMIN. */
     static String bearer(UUID userId, String role, UUID barbershopId) {
-        return signed(userId.toString(), role, barbershopId);
+        return signed(userId.toString(), role, barbershopId, APP_AUDIENCE);
     }
 
-    /** "Bearer ..." for a service token: role SERVICE, the service name as sub, no barbershop. */
+    /** "Bearer ..." for a service token: role SERVICE, the service name as sub, no barbershop, no aud. */
     static String serviceBearer(String service) {
-        return signed(service, "SERVICE", null);
+        return signed(service, "SERVICE", null, null);
     }
 
-    private static String signed(String subject, String role, UUID barbershopId) {
+    /** A user token signed by identity-auth with a valid iss but another aud, or none when {@code aud} is null. */
+    static String bearerWithAudience(String aud, String role, UUID barbershopId) {
+        return signed(UUID.randomUUID().toString(), role, barbershopId, aud);
+    }
+
+    /** identity-auth-api #39: every user token names the app as its audience (authentication.md, step 4). */
+    static final String APP_AUDIENCE = "barber-saas-app";
+
+    private static String signed(String subject, String role, UUID barbershopId, String aud) {
         long now = Instant.now().getEpochSecond();
-        String claims = "{\"iss\":\"barber-saas-identity-auth-api\",\"sub\":\"" + subject + "\",\"role\":\"" + role + "\""
+        String claims = "{" + (aud == null ? "" : "\"aud\":\"" + aud + "\",")
+                + "\"iss\":\"barber-saas-identity-auth-api\",\"sub\":\"" + subject + "\",\"role\":\"" + role + "\""
                 + (barbershopId == null ? "" : ",\"barbershopId\":\"" + barbershopId + "\"")
                 + ",\"iat\":" + now + ",\"exp\":" + (now + 600) + "}";
         try {
