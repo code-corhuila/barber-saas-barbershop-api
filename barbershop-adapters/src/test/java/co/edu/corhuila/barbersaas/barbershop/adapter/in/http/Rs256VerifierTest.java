@@ -92,4 +92,37 @@ class Rs256VerifierTest {
                 token(KEYS, "RS256", claims("CLIENT", null, valid).replace("identity-auth", "evil")), NOW));
         assertThrows(Rs256Verifier.InvalidTokenException.class, () -> verifier.verify("not.a-token", NOW));
     }
+
+    /** The same claims with an {@code aud} claim; {@code aud} is raw JSON: a string or an array. */
+    private static String withAudience(String claims, String aud) {
+        return claims.replace("{\"iss\"", "{\"aud\":" + aud + ",\"iss\"");
+    }
+
+    @Test
+    void a_token_for_the_app_names_barber_saas_app_as_its_audience() throws Exception {
+        String owner = claims("ADMIN_BARBERSHOP", UUID.randomUUID().toString(), NOW.getEpochSecond() + 60);
+
+        assertEquals(Caller.Role.ADMIN_BARBERSHOP, verifier.verifyForApp(
+                token(KEYS, "RS256", withAudience(owner, "\"barber-saas-app\"")), NOW).role());
+        assertEquals(Caller.Role.ADMIN_BARBERSHOP, verifier.verifyForApp(
+                token(KEYS, "RS256", withAudience(owner, "[\"barber-saas-app\"]")), NOW).role());
+    }
+
+    @Test
+    void a_token_with_a_valid_issuer_but_without_the_app_audience_is_rejected_for_the_app() {
+        String owner = claims("ADMIN_BARBERSHOP", UUID.randomUUID().toString(), NOW.getEpochSecond() + 60);
+
+        for (String claims : new String[] {owner, withAudience(owner, "\"barber-saas-loyalty-api\""),
+                withAudience(owner, "[]"), withAudience(owner, "[\"barber-saas-worker\"]"), withAudience(owner, "1")}) {
+            assertThrows(Rs256Verifier.InvalidTokenException.class,
+                    () -> verifier.verifyForApp(token(KEYS, "RS256", claims), NOW), claims);
+        }
+    }
+
+    @Test
+    void the_internal_routes_do_not_read_the_audience() throws Exception {
+        String service = claims("SERVICE", null, NOW.getEpochSecond() + 60);
+
+        assertEquals(Caller.Role.SERVICE, verifier.verify(token(KEYS, "RS256", service), NOW).role());
+    }
 }
